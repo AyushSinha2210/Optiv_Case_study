@@ -1,0 +1,27 @@
+# Environments & Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE & Editor Configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Output & Temporary Files
+*.log
+scratch/
+output/
+dist/
+build/
+*.tmp
