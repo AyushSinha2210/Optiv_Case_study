@@ -25,3 +25,8 @@ output/
 dist/
 build/
 *.tmp
+.pytest_cache/
+
+# Proprietary Case Study Documents
+Case Study Brief.pdf
+PII_Case_Study_Named_Team_Detailed_Architecture.pdf
