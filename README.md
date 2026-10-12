@@ -32,7 +32,52 @@ Based on the updated architectural specification (`PII_Case_Study_Named_Team_Det
 
 ---
 
-## 3. Project Structure
+## 3. System Architecture & Trust Boundaries
+
+The system is partitioned into three independent operational planes to ensure privacy, performance, and clear developer boundaries:
+
+```mermaid
+flowchart TD
+    subgraph StoragePlane["Storage & Quarantine Plane"]
+        S1[(Quarantine Store<br/>Short-lived original files)]
+        S2[(Sanitized Output Store<br/>Only if PASS & release_allowed=true)]
+        S3[(Audit Store<br/>Metadata-only, no raw text)]
+    end
+
+    subgraph RuntimePlane["Runtime Data Plane (Live Pipeline)"]
+        A[Client Upload / API] --> B[1. Validation & Sniffing<br/>Member 1: Ayush]
+        B --> C[2. Layout-Preserving Extraction & OCR<br/>Member 1: Ayush]
+        C --> D[3. PII Detection & Classification<br/>Member 2: Avishi]
+        D --> E[4. Redaction & Verification Gate<br/>Member 3: Yash]
+        E --> F[5. State Machine & Audit Report<br/>Member 5: Tirth]
+        F --> G{Release Gate<br/>PASS?}
+        G -->|Yes: release_allowed=true| H[Download Approved]
+        G -->|No: FAIL / INCOMPLETE| I[BLOCKED: Download Disabled]
+    end
+
+    subgraph QualityPlane["Independent Quality Plane (Offline / CI)"]
+        Q1[Member 1: Extraction Quality & >=80% Structure Benchmarks]
+        Q2[Member 2: Ground Truth & Precision / Recall / F1 Evaluation]
+        Q3[Member 3: Leakage Tests & Saved-Artifact Checks]
+        Q4[Member 4: Synthetic Demo Pack & PPT Slide Deck]
+        Q5[Member 5: Cross-Module Integration Tests]
+    end
+
+    A -.-> S1
+    E -.-> S2
+    F -.-> S3
+```
+
+### Pipeline Lifecycle States
+`RECEIVED` $\rightarrow$ `VALIDATED` $\rightarrow$ `EXTRACTED` $\rightarrow$ `DETECTED` $\rightarrow$ `REDACTED` $\rightarrow$ `VERIFIED` $\rightarrow$ `RELEASED`
+- Any technical fault transitions to `FAILED`.
+- Any unverified or leaking redaction transitions to `BLOCKED`.
+- Any missing required verification transitions to `INCOMPLETE`.
+- All states except verified `PASS` prevent client download.
+
+---
+
+## 4. Project Structure
 
 ```text
 ├── README.md                           # Project overview, team roster & architecture
