@@ -27,7 +27,10 @@ from .models import (
     FindingInfo,
     RedactionResult,
     ProcessingResult,
+    ProcessingReport,
 )
+from .artifacts import ArtifactManager, get_default_artifact_manager
+from .pipeline import process_document
 
 __all__ = [
     "PipelineStage",
@@ -53,4 +56,8 @@ __all__ = [
     "FindingInfo",
     "RedactionResult",
     "ProcessingResult",
+    "ProcessingReport",
+    "ArtifactManager",
+    "get_default_artifact_manager",
+    "process_document",
 ]

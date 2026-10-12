@@ -113,6 +113,19 @@ class AuditTrail:
                 return list(self._events)
             return [e for e in self._events if e.document_id == document_id]
 
+    def relink_document_id(self, old_id: str, new_id: str) -> None:
+        """Unify early events with the canonical document ID assigned by Ingestion."""
+        with self._lock:
+            updated: List[AuditEvent] = []
+            for e in self._events:
+                if e.document_id == old_id:
+                    d = e.model_dump()
+                    d["document_id"] = new_id
+                    updated.append(AuditEvent(**d))
+                else:
+                    updated.append(e)
+            self._events = updated
+
     def clear(self) -> None:
         """Clear recorded events (primarily for test fixture isolation)."""
         with self._lock:
