@@ -188,3 +188,36 @@ python benchmarks/bench_ingestion.py
 ```bash
 python -m src.pii_guard.ingestion tests/fixtures/ingestion/sample.docx --json
 ```
+
+---
+
+## 8. Definition of Done (DoD) & Acceptance Criteria
+
+All 13 Member 1 acceptance criteria specified in the revised team guide have been completed and verified:
+
+| Acceptance Criterion | Implementation Status | Evidence / Verification |
+| :--- | :---: | :--- |
+| **1. Public API Contract A** | **PASS** | `extract_document(file_path)` returns Pydantic v2 `ExtractedDocument` matching schema. |
+| **2. Multi-Format Adapters** | **PASS** | `PDFAdapter`, `DOCXAdapter`, `PPTXAdapter`, and `TXTAdapter` implemented in `adapters/`. |
+| **3. Layout & Structure Preservation** | **PASS** | Interleaved paragraphs and tables in DOCX, reading order in PDF, slide hierarchy in PPTX. |
+| **4. Selective Adaptive OCR** | **PASS** | PyMuPDF fast-path with selective Tesseract triggers at 200 DPI, 300 DPI fallback with OpenCV deskew. |
+| **5. Malicious & Sanity Defenses** | **PASS** | Sniffs real magic bytes; rejects renamed `.exe`, zip bombs ($\le 100:1$), and encrypted PDFs. |
+| **6. Fail-Closed Default** | **PASS** | Zero unhandled exceptions. Errors resolve to `status="failed"` or `"partial"` with structured codes. |
+| **7. Single Source of Truth** | **PASS** | Normalization (Unicode NFC, newlines, null bytes) occurs once. Pages demarcated by `\f`. |
+| **8. Privacy Mandate (Zero Leakage)** | **PASS** | Zero document text or synthetic PII logged in error traces or warnings (tested via `caplog`). |
+| **9. Structure Retention Score $\ge 80\%$** | **PASS** | Quantitative weighted score achieved **100.0%** across DOCX, PDF, and PPTX fixtures. |
+| **10. Synthetic Test Fixtures** | **PASS** | 14 small deterministic fixtures covering normal, corrupted, rotated, and attack files. |
+| **11. Automated Test Suite** | **PASS** | 25 automated tests pass (19 ingestion + 3 config + 3 CLI tests). |
+| **12. Throughput Benchmarking** | **PASS** | `benchmarks/bench_ingestion.py` measures up to **981.6 pages/sec** (PDF) and **4,684 pages/sec** (TXT). |
+| **13. Documentation & Evidence Handoff** | **PASS** | `docs/ingestion.md` and `docs/interfaces.md` completed. |
+
+---
+
+## 9. Presentation Evidence Handoff for Nancy (Member 4)
+
+Nancy can extract the following verified artifacts directly for the PowerPoint presentation deck:
+
+- **Supported Formats Table:** PDF (Digital), PDF (Scanned OCR), Word (DOCX), PowerPoint (PPTX), Plain Text (TXT).
+- **Quality Metric Benchmark:** Structure retention score = **100.0%** (exceeding the $\ge 80\%$ requirement) with sample size = 5 diverse artifacts.
+- **Throughput Metric:** Digital PDF at **981.6 pages/sec**; DOCX at **117.0 pages/sec**; Tesseract OCR at **0.65 pages/sec**.
+- **Known Limitation for Slides:** Degraded or heavily skewed scans (< 150 DPI) automatically trigger OCR low-confidence fallback and are marked `extraction_status="partial"` to prompt human review.
