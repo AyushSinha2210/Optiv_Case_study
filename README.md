@@ -128,7 +128,35 @@ To allow all five team members to develop and test concurrently without blocking
 
 ---
 
-## 6. Quickstart
+## 6. Extraction Quality & Performance Benchmarks
+
+### A. Extraction Quality ($\ge 80\%$ Target)
+Under Cadence's control requirements, extracted text must preserve at least 80% of original structural layout and context to ensure downstream AI inference remains valid. Quality is quantitatively computed in `src/pii_guard/ingestion/quality.py`:
+
+$$\text{Structure Score} = 0.25 \times \text{Boundaries} + 0.25 \times \text{Headings} + 0.20 \times \text{Paragraphs} + 0.20 \times \text{Tables} + 0.10 \times \text{Reading Order}$$
+
+| Format / Payload | Sample Size | Completeness (RapidFuzz) | Structure Retention Score | Status |
+| :--- | :---: | :---: | :---: | :---: |
+| **Word Document (DOCX)** | 1 document | **100.0%** | **100.0%** | **PASS** ($\ge 80\%$) |
+| **Digital PDF** | 2 pages | **100.0%** | **100.0%** | **PASS** ($\ge 80\%$) |
+| **PowerPoint (PPTX)** | 2 slides | **100.0%** | **100.0%** | **PASS** ($\ge 80\%$) |
+| **Composite Average** | **5 artifacts** | **100.0%** | **100.0%** | **PASS** ($\ge 80\%$) |
+
+### B. Ingestion Throughput (`benchmarks/bench_ingestion.py`)
+Measured on Windows 11 (AMD64, Python 3.12.10, Tesseract v5.4.0):
+
+| Format / Test Artifact | Pages | Size (KB) | Latency (s) | Throughput (Pages/sec) | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **PDF (Digital Text)** | 2 | 1.5 KB | 0.0020 s | **981.64 pages/sec** | `success` |
+| **DOCX (Interleaved Body)** | 1 | 37.2 KB | 0.0085 s | **117.00 pages/sec** | `success` |
+| **PPTX (Shapes & Notes)** | 2 | 33.3 KB | 0.0061 s | **328.46 pages/sec** | `success` |
+| **TXT (UTF-8 Stream)** | 1 | 0.1 KB | 0.0002 s | **4,684.57 pages/sec** | `success` |
+| **PDF (Scanned OCR @ 200 DPI)** | 1 | 2,581.6 KB | 1.5418 s | **0.65 pages/sec** | `success` |
+| **PDF (Mixed Digital + OCR)** | 2 | 1,410.3 KB | 1.3320 s | **1.50 pages/sec** | `partial` |
+
+---
+
+## 7. Quickstart
 
 ### 1. Setup Virtual Environment
 ```bash
