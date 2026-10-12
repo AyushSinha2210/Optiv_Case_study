@@ -6,6 +6,7 @@ Provides sanitized audit logging, structured report generation, evaluation metri
 
 from .audit import AuditEvent, AuditTrail, get_global_audit_trail
 from .report_generator import generate_report, generate_human_readable_summary
+from .metrics import calculate_evaluation_metrics, DetectionMetricResult, MatchingStrategy, EntityAnnotation
 from .export import export_to_json, export_to_csv
 
 __all__ = [
@@ -14,6 +15,10 @@ __all__ = [
     "get_global_audit_trail",
     "generate_report",
     "generate_human_readable_summary",
+    "calculate_evaluation_metrics",
+    "DetectionMetricResult",
+    "MatchingStrategy",
+    "EntityAnnotation",
     "export_to_json",
     "export_to_csv",
 ]
