@@ -5,9 +5,15 @@ Provides sanitized audit logging, structured report generation, evaluation metri
 """
 
 from .audit import AuditEvent, AuditTrail, get_global_audit_trail
+from .report_generator import generate_report, generate_human_readable_summary
+from .export import export_to_json, export_to_csv
 
 __all__ = [
     "AuditEvent",
     "AuditTrail",
     "get_global_audit_trail",
+    "generate_report",
+    "generate_human_readable_summary",
+    "export_to_json",
+    "export_to_csv",
 ]
