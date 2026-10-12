@@ -77,7 +77,20 @@ flowchart TD
 
 ---
 
-## 4. Project Structure
+## 4. Shared Interface Contracts
+
+To allow all five team members to develop and test concurrently without blocking dependencies, communication between modules is governed by four strict, immutable data contracts (see [`docs/interfaces.md`](file:///c:/Users/AYUSH%20SINHA/Optiv/docs/interfaces.md) for full JSON schemas):
+
+| Contract | Schema Name | Producer | Consumer | Key Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| **Contract A** | `ExtractedDocument` | **Member 1 (Ayush)** | **Member 2 (Avishi)** | Normalized single-source-of-truth text, exact character offsets, and per-page OCR confidence. |
+| **Contract B** | `DetectionResult` | **Member 2 (Avishi)** | **Member 3 (Yash)** | Classified entity spans (`type`, `start`, `end`, `confidence`) mapped into `ExtractedDocument.text`. |
+| **Contract C** | `RedactionResult` | **Member 3 (Yash)** | **Member 5 (Tirth)** | Redacted output, verification outcome (`PASS`/`FAIL`/`INCOMPLETE`), and `release_allowed` boolean flag. |
+| **Contract D** | `ProcessingReport` | **Member 5 (Tirth)** | **Auditor / Client** | Metadata-only audit ledger (entity counts by category, timestamps, versions); strictly no raw PII. |
+
+---
+
+## 5. Project Structure
 
 ```text
 ├── README.md                           # Project overview, team roster & architecture
@@ -115,7 +128,7 @@ flowchart TD
 
 ---
 
-## 4. Quickstart
+## 6. Quickstart
 
 ### 1. Setup Virtual Environment
 ```bash
