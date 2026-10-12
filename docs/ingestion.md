@@ -106,9 +106,13 @@ ExtractedDocument = {
   $$\text{pages}[i].\text{char\_count} == \text{len}(\text{slice})$$
   $$\text{text}[\text{pages}[i].\text{end} : \text{pages}[i+1].\text{start}] == \text{"\\f"}$$
 
+*(See [`docs/interfaces.md`](file:///c:/Users/AYUSH%20SINHA/Optiv/docs/interfaces.md) for full pipeline contract specifications across Contracts A, B, C, and D).*
+
 ---
 
-## 5. Security Controls & Defenses
+## 5. Security Controls & Configurable Defenses
+
+All limits can be dynamically overridden via environment variables or initialized via `IngestionConfig.from_env()`:
 
 1. **Magic Byte Signature Sniffing:** Verifies actual file headers (`%PDF-`, `PK\x03\x04`, `MZ`, `ELF`). Executable files renamed to `.pdf` are blocked (`ERR_RENAMED_EXECUTABLE`).
 2. **Zip Bomb Protection:** Rejects `.docx` and `.pptx` archives exceeding a compression ratio of $100:1$ or uncompressed size $> 200\text{ MB}$ (`ERR_ZIP_BOMB_DETECTED`).
@@ -196,11 +200,11 @@ Supported Formats & Speed:
 Quality Metrics (Case Study Target: >= 80% Structure Retention):
 - Completeness:       100.0% (RapidFuzz lexical similarity against ground truth)
 - Structure Score:    100.0% (Weighted retention: boundaries, headings, paragraphs, tables, order)
-- Sample Size:        19 automated test cases across 14 synthetic fixtures
+- Sample Size:        25 automated test cases across 14 synthetic fixtures
 
 Test Verification:
-- Command:            pytest -q tests/test_ingestion.py
-- Outcome:            19 passed in 15.15s (100% pass rate)
+- Commands:           pytest -v (tests/test_ingestion.py, test_config.py, test_cli.py)
+- Outcome:            25 passed in 12.36s (100% pass rate)
 
 Synthetic Extracted Text Example (from sample.docx):
 --------------------------------------------------------------------------------
