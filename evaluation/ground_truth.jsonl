@@ -1,0 +1,22 @@
+{"doc_id": "det-001", "text": "Please send the revised statement to alex.rivera@example.test or call +1 (415) 555-0132 before Friday.", "entities": [{"type": "EMAIL", "start": 37, "end": 61, "value": "alex.rivera@example.test"}, {"type": "PHONE", "start": 70, "end": 87, "value": "+1 (415) 555-0132"}]}
+{"doc_id": "det-002", "text": "The quarterly risk committee meets on the second Tuesday. Agenda items are listed in the shared calendar.", "entities": []}
+{"doc_id": "det-003", "text": "Applicant SSN is 123-45-6789; internal reference EMP-10482 is attached to the onboarding file.", "entities": [{"type": "GOVERNMENT_ID", "start": 17, "end": 28, "value": "123-45-6789"}, {"type": "EMPLOYEE_ID", "start": 49, "end": 58, "value": "EMP-10482"}]}
+{"doc_id": "det-004", "text": "Card on file 4111 1111 1111 1111 expires next year. Do not store it in plain text.", "entities": [{"type": "FINANCIAL_IDENTIFIER", "start": 13, "end": 32, "value": "4111 1111 1111 1111"}]}
+{"doc_id": "det-005", "text": "Batch reference 4111 1111 1111 1112 was rejected by the reconciliation job.", "entities": []}
+{"doc_id": "det-006", "text": "Test value 666-12-3456 and short form 123-45-678 are not valid identifiers.", "entities": []}
+{"doc_id": "det-007", "text": "Connection from 192.0.2.44 was logged at 09:14 UTC.", "entities": [{"type": "IP_ADDRESS", "start": 16, "end": 26, "value": "192.0.2.44"}]}
+{"doc_id": "det-008", "text": "Release 2.10.3 was deployed on 2026-10-12 under change ticket CHG-2231, build 1.2.3.", "entities": []}
+{"doc_id": "det-009", "text": "PAN on the application form is ABCPE1234F as shown in the KYC scan.", "entities": [{"type": "GOVERNMENT_ID", "start": 31, "end": 41, "value": "ABCPE1234F"}]}
+{"doc_id": "det-010", "text": "Order 1234567890123 shipped; tracking code TRK-889900.", "entities": []}
+{"doc_id": "det-011", "text": "Alex Example (EMP-20011) can be reached at alex@example.test or 555-013-7788.", "entities": [{"type": "PERSON", "start": 0, "end": 12, "value": "Alex Example"}, {"type": "EMPLOYEE_ID", "start": 14, "end": 23, "value": "EMP-20011"}, {"type": "EMAIL", "start": 43, "end": 60, "value": "alex@example.test"}, {"type": "PHONE", "start": 64, "end": 76, "value": "555-013-7788"}]}
+{"doc_id": "det-012", "text": "Owner account 10.0.0.1@example.test was flagged by the mail filter.", "entities": [{"type": "EMAIL", "start": 14, "end": 35, "value": "10.0.0.1@example.test"}]}
+{"doc_id": "det-013", "text": "Reference 2026-10-12 and extension 0132 only, no contact details here.", "entities": []}
+{"doc_id": "det-014", "text": "Page one contact: ops.team@example.test\fPage two contact: 5550139245.", "entities": [{"type": "EMAIL", "start": 18, "end": 39, "value": "ops.team@example.test"}, {"type": "PHONE", "start": 58, "end": 68, "value": "5550139245"}]}
+{"doc_id": "det-015", "text": "Q3 revenue grew 12.5 percent; this memo contains no customer data.", "entities": []}
+{"doc_id": "det-016", "text": "Reach me at ops.team@example.test, or +91 98765 43210.", "entities": [{"type": "EMAIL", "start": 12, "end": 33, "value": "ops.team@example.test"}, {"type": "PHONE", "start": 38, "end": 53, "value": "+91 98765 43210"}]}
+{"doc_id": "det-017", "text": "Holder code check: ABCDE1234F is not a valid holder type.", "entities": []}
+{"doc_id": "det-018", "text": "Gateway 198.51.100.7 and backup 203.0.113.19 are documented in the runbook.", "entities": [{"type": "IP_ADDRESS", "start": 8, "end": 20, "value": "198.51.100.7"}, {"type": "IP_ADDRESS", "start": 32, "end": 44, "value": "203.0.113.19"}]}
+{"doc_id": "det-019", "text": "", "entities": []}
+{"doc_id": "det-020", "text": "Prepared by Julian Thorne for the audit committee.", "entities": [{"type": "PERSON", "start": 12, "end": 25, "value": "Julian Thorne"}]}
+{"doc_id": "det-021", "text": "Escalate to Priya Raman at priya.raman@example.test if the batch fails.", "entities": [{"type": "PERSON", "start": 12, "end": 23, "value": "Priya Raman"}, {"type": "EMAIL", "start": 27, "end": 51, "value": "priya.raman@example.test"}]}
+{"doc_id": "det-022", "text": "Build 12345 and ticket 67890 were merged at 10:30.", "entities": []}
