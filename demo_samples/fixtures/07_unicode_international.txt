@@ -1,0 +1,8 @@
+Fiche de Conformité Européenne & Internationaler Bericht
+
+Contact Paris: Hélène Synthétique (helene.test@modele-francais.example.com)
+Prüfstelle Zürich: Johann Weiß (johann.beispiel@deutsche-bank-demo.example.org)
+Téléphone Genève: +41 22 555 0199
+日本語のテスト: 架空の顧客連絡先 (Tokyo branch: tokyo.synthetic@example.jp)
+
+Remarque: Données entièrement fictives pour tests multilingues.

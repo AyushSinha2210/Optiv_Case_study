@@ -1,0 +1,119 @@
+{
+  "generator_version": "1.0.0",
+  "seed": 42,
+  "created_at": "2026-10-12T21:39:01.484666+00:00",
+  "fixture_count": 10,
+  "privacy_notice": "All fixtures are 100% synthetically generated for Cadence AI Governance case study demonstration. No real personal records, customer data, or live identifiers are contained.",
+  "fixtures": [
+    {
+      "fixture_id": "synth-001",
+      "scenario": "scenario_email",
+      "file_type": "txt",
+      "relative_path": "fixtures/01_synthetic_email.txt",
+      "expected_categories": [
+        "EMAIL"
+      ],
+      "expected_entity_count": 2,
+      "description": "Plain text document containing 2 synthetic email addresses."
+    },
+    {
+      "fixture_id": "synth-002",
+      "scenario": "scenario_phone",
+      "file_type": "txt",
+      "relative_path": "fixtures/02_synthetic_phone.txt",
+      "expected_categories": [
+        "PHONE"
+      ],
+      "expected_entity_count": 2,
+      "description": "Plain text document containing 2 synthetic phone numbers."
+    },
+    {
+      "fixture_id": "synth-003",
+      "scenario": "scenario_mixed_pii",
+      "file_type": "txt",
+      "relative_path": "fixtures/03_mixed_pii.txt",
+      "expected_categories": [
+        "EMPLOYEE_ID",
+        "EMAIL",
+        "PHONE",
+        "GOVERNMENT_ID"
+      ],
+      "expected_entity_count": 4,
+      "description": "Multi-category plain text document with email, phone, government ID, and employee ID."
+    },
+    {
+      "fixture_id": "synth-004",
+      "scenario": "scenario_clean_no_pii",
+      "file_type": "txt",
+      "relative_path": "fixtures/04_clean_no_pii.txt",
+      "expected_categories": [],
+      "expected_entity_count": 0,
+      "description": "Benchmark clean technical document with zero personal identifiers."
+    },
+    {
+      "fixture_id": "synth-005",
+      "scenario": "scenario_repeated_entities",
+      "file_type": "txt",
+      "relative_path": "fixtures/05_repeated_entities.txt",
+      "expected_categories": [
+        "EMAIL"
+      ],
+      "expected_entity_count": 4,
+      "description": "Document featuring repeated occurrences of the same synthetic entity across paragraphs."
+    },
+    {
+      "fixture_id": "synth-006",
+      "scenario": "scenario_multi_category_docx",
+      "file_type": "docx",
+      "relative_path": "fixtures/06_multi_category.docx",
+      "expected_categories": [
+        "EMPLOYEE_ID",
+        "EMAIL",
+        "PHONE"
+      ],
+      "expected_entity_count": 3,
+      "description": "Word document (.docx) with structured tables and paragraphs containing synthetic PII."
+    },
+    {
+      "fixture_id": "synth-007",
+      "scenario": "scenario_unicode_international",
+      "file_type": "txt",
+      "relative_path": "fixtures/07_unicode_international.txt",
+      "expected_categories": [
+        "EMAIL",
+        "PHONE"
+      ],
+      "expected_entity_count": 4,
+      "description": "Multilingual document with French, German, and Japanese characters and synthetic PII."
+    },
+    {
+      "fixture_id": "synth-008",
+      "scenario": "scenario_empty",
+      "file_type": "txt",
+      "relative_path": "fixtures/08_empty_document.txt",
+      "expected_categories": [],
+      "expected_entity_count": 0,
+      "description": "Zero-byte document used for testing fail-closed validation safeguards."
+    },
+    {
+      "fixture_id": "synth-009",
+      "scenario": "scenario_long_document",
+      "file_type": "txt",
+      "relative_path": "fixtures/09_long_document.txt",
+      "expected_categories": [
+        "EMAIL"
+      ],
+      "expected_entity_count": 4,
+      "description": "Extended 20-paragraph document with sparse synthetic entities to test throughput and chunking."
+    },
+    {
+      "fixture_id": "synth-010",
+      "scenario": "scenario_unsupported_malformed",
+      "file_type": "xyz",
+      "relative_path": "fixtures/10_malformed_binary.xyz",
+      "expected_categories": [],
+      "expected_entity_count": 0,
+      "description": "Arbitrary unsupported binary file to verify input validation failure handling."
+    }
+  ]
+}
