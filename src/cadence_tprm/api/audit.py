@@ -18,18 +18,18 @@ def list_audit_logs(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    logs = AuditService.list_logs(db, entity_type=entity_type, entity_id=entity_id, limit=limit)
-    return {
-        "logs": [
-            {
-                "id": log.id,
-                "actor_email": log.actor_email,
-                "action": log.action,
-                "entity_type": log.entity_type,
-                "entity_id": log.entity_id,
-                "details": log.details,
-                "timestamp": log.timestamp.isoformat(),
-            }
-            for log in logs
-        ]
-    }
+    norm_type = entity_type.upper() if entity_type and entity_type != "All" else None
+    logs = AuditService.list_logs(db, entity_type=norm_type, entity_id=entity_id, limit=limit)
+    items = [
+        {
+            "id": log.id,
+            "actor_email": log.actor_email,
+            "action": log.action,
+            "entity_type": log.entity_type,
+            "entity_id": log.entity_id,
+            "details": log.details,
+            "timestamp": log.timestamp.isoformat(),
+        }
+        for log in logs
+    ]
+    return {"logs": items, "items": items, "total": len(items)}
