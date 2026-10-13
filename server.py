@@ -40,7 +40,7 @@ from src.pii_guard.reporting.export import export_to_json, export_to_csv
 
 # TPRM Platform imports
 from src.cadence_tprm.api import api_router as tprm_api_router
-from src.cadence_tprm.database import engine as tprm_engine, Base as TPRMBase, SessionLocal as TPRMSessionLocal
+from src.cadence_tprm.database import engine as tprm_engine, Base as TPRMBase, SessionLocal as TPRMSessionLocal, init_db as init_tprm_db
 from src.cadence_tprm.seed.seed_data import seed_database as seed_tprm_database
 
 app = FastAPI(
@@ -51,7 +51,7 @@ app = FastAPI(
 
 # Auto-initialize and seed TPRM database
 try:
-    TPRMBase.metadata.create_all(bind=tprm_engine)
+    init_tprm_db(tprm_engine)
     _db = TPRMSessionLocal()
     seed_tprm_database(_db)
     _db.close()
@@ -111,6 +111,15 @@ class AssistantRequest(BaseModel):
     document_id: str
     query: Optional[str] = None
     topic: Optional[str] = "general"  # "decision", "taxonomy", "leakage", "policy", "general"
+
+
+@app.get("/health")
+def root_health_check():
+    return {
+        "status": "healthy",
+        "service": "cadence-unified-platform",
+        "version": "1.0.0"
+    }
 
 
 @app.get("/api/health")
