@@ -9,17 +9,13 @@ import zipfile
 import zlib
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
-import pymupdf
-import docx
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.enum.shapes import MSO_SHAPE
 
 FIXTURES_DIR = Path(__file__).parent
 
 
 def create_clean_text_pdf(output_path: Path):
     """Generate a clean 2-page digital PDF with headings and tables using PyMuPDF."""
+    import pymupdf
     doc = pymupdf.open()
 
     # Page 1
@@ -70,6 +66,7 @@ def create_scanned_pdf(output_path: Path, rotate_angle: int = 0):
     img_bytes_path = output_path.with_suffix(".png")
     img.save(str(img_bytes_path))
 
+    import pymupdf
     doc = pymupdf.open()
     page = doc.new_page(width=img.width, height=img.height)
     page.insert_image(page.rect, filename=str(img_bytes_path))
@@ -82,6 +79,7 @@ def create_scanned_pdf(output_path: Path, rotate_angle: int = 0):
 
 def create_mixed_pdf(output_path: Path):
     """Create a 2-page PDF: Page 1 is native digital text, Page 2 is a scanned image."""
+    import pymupdf
     doc = pymupdf.open()
 
     # Page 1: Digital text
@@ -110,6 +108,7 @@ def create_mixed_pdf(output_path: Path):
 
 def create_sample_docx(output_path: Path):
     """Create a DOCX with header, footer, interleaved paragraphs, and tables."""
+    import docx
     doc = docx.Document()
 
     # Header and Footer
@@ -143,6 +142,10 @@ def create_sample_docx(output_path: Path):
 
 def create_sample_pptx(output_path: Path):
     """Create a PPTX with title, shapes, table, and speaker notes."""
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.enum.shapes import MSO_SHAPE
+
     prs = Presentation()
     slide_layout = prs.slide_layouts[0]  # Title slide
     slide = prs.slides.add_slide(slide_layout)
@@ -203,6 +206,7 @@ def create_renamed_executable(output_path: Path):
 
 def create_encrypted_pdf(output_path: Path):
     """Create a password-protected encrypted PDF using PyMuPDF."""
+    import pymupdf
     doc = pymupdf.open()
     page = doc.new_page()
     page.insert_text((50, 72), "Confidential Encrypted Content")

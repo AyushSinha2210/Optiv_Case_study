@@ -12,11 +12,8 @@ class TXTAdapter(BaseAdapter):
     """Robust text extractor prioritizing UTF-8 and standard Western encodings with charset-normalizer fallback."""
 
     def extract(self, path: Path, config: IngestionConfig) -> AdapterResult:
-        import charset_normalizer
-
         warnings: List[WarningInfo] = []
         raw_bytes = path.read_bytes()
-
         text = ""
         used_encoding = "utf-8"
 
@@ -31,10 +28,18 @@ class TXTAdapter(BaseAdapter):
                 used_encoding = "cp1252"
             except UnicodeDecodeError:
                 # 3. Use charset-normalizer for arbitrary international encodings
-                detected = charset_normalizer.from_bytes(raw_bytes).best()
-                if detected is not None and detected.encoding:
-                    text = str(detected)
-                    used_encoding = detected.encoding
+                detected_text = None
+                try:
+                    import charset_normalizer
+                    detected = charset_normalizer.from_bytes(raw_bytes).best()
+                    if detected is not None and detected.encoding:
+                        detected_text = str(detected)
+                        used_encoding = detected.encoding
+                except ImportError:
+                    pass
+
+                if detected_text is not None:
+                    text = detected_text
                 else:
                     # 4. Safe fallback
                     text = raw_bytes.decode("latin-1", errors="replace")

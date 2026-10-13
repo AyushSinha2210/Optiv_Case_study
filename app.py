@@ -11,7 +11,10 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Tuple
 
-import streamlit as st
+try:
+    import streamlit as st
+except ImportError:
+    st = None
 
 from src.pii_guard.orchestration.pipeline import process_document
 from src.pii_guard.orchestration.state import PipelineStage
@@ -45,6 +48,9 @@ def validate_uploaded_file(uploaded_file) -> Tuple[bool, Optional[str]]:
 
 
 def main():
+    if st is None:
+        raise ImportError("Streamlit is required to launch the interactive UI: pip install streamlit")
+
     st.set_page_config(
         page_title="PII Guard — Cadence Financial Group",
         page_icon="🛡️",

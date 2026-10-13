@@ -2,7 +2,32 @@
 
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
-import rapidfuzz
+try:
+    import rapidfuzz
+    _HAS_RAPIDFUZZ = True
+except ImportError:
+    _HAS_RAPIDFUZZ = False
+    import difflib
+
+
+def _token_set_ratio(s1: str, s2: str) -> float:
+    if _HAS_RAPIDFUZZ:
+        return float(rapidfuzz.fuzz.token_set_ratio(s1, s2))
+    tokens1 = " ".join(sorted(set(s1.lower().split())))
+    tokens2 = " ".join(sorted(set(s2.lower().split())))
+    return difflib.SequenceMatcher(None, tokens1, tokens2).ratio() * 100.0
+
+
+def _partial_ratio(s1: str, s2: str) -> float:
+    if _HAS_RAPIDFUZZ:
+        return float(rapidfuzz.fuzz.partial_ratio(s1, s2))
+    if not s1 or not s2:
+        return 0.0
+    if len(s1) > len(s2):
+        s1, s2 = s2, s1
+    if s1 in s2:
+        return 100.0
+    return difflib.SequenceMatcher(None, s1, s2).quick_ratio() * 100.0
 
 from .schemas import ExtractedDocument
 
@@ -56,7 +81,7 @@ def calculate_quality_metrics(
         completeness = 100.0 if not extracted_text.strip() else 0.0
     else:
         completeness = float(
-            rapidfuzz.fuzz.token_set_ratio(
+            _token_set_ratio(
                 ground_truth.expected_text, extracted_text
             )
         )
@@ -74,7 +99,7 @@ def calculate_quality_metrics(
         found_headings = 0
         for h in ground_truth.headings:
             # Check presence with fuzzy matching threshold >= 85
-            ratio = rapidfuzz.fuzz.partial_ratio(h, extracted_text)
+            ratio = _partial_ratio(h, extracted_text)
             if ratio >= 85:
                 found_headings += 1
         heading_score = (found_headings / len(ground_truth.headings)) * 100.0
@@ -85,7 +110,7 @@ def calculate_quality_metrics(
     if ground_truth.paragraphs:
         found_paras = 0
         for p in ground_truth.paragraphs:
-            ratio = rapidfuzz.fuzz.partial_ratio(p, extracted_text)
+            ratio = _partial_ratio(p, extracted_text)
             if ratio >= 80:
                 found_paras += 1
         paragraph_score = (found_paras / len(ground_truth.paragraphs)) * 100.0
@@ -96,7 +121,7 @@ def calculate_quality_metrics(
     if ground_truth.table_rows:
         found_rows = 0
         for r in ground_truth.table_rows:
-            ratio = rapidfuzz.fuzz.partial_ratio(r, extracted_text)
+            ratio = _partial_ratio(r, extracted_text)
             if ratio >= 80:
                 found_rows += 1
         table_score = (found_rows / len(ground_truth.table_rows)) * 100.0

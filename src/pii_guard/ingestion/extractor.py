@@ -25,6 +25,21 @@ def extract_document(
     cfg = config or IngestionConfig()
     doc_id = f"doc-{uuid.uuid4().hex[:12]}"
 
+    if not file_path or not isinstance(file_path, (str, Path)):
+        return ExtractedDocument(
+            document_id=doc_id,
+            source_type="pdf",
+            text="",
+            pages=[],
+            warnings=[
+                WarningInfo(
+                    code="ERR_INVALID_FILE_PATH",
+                    message="Specified file path is empty or of invalid type",
+                )
+            ],
+            extraction_status="failed",
+        )
+
     try:
         # Step 1: Pre-flight validation
         val_res = validate_file(file_path, config=cfg)
@@ -129,8 +144,11 @@ def extract_document(
 
     except Exception as e:
         # Fail-closed top-level guard: never raise to caller
-        ext = Path(file_path).suffix.lower().lstrip(".")
-        safe_src = ext if ext in ("pdf", "docx", "pptx", "txt") else "pdf"
+        try:
+            ext = Path(file_path).suffix.lower().lstrip(".")
+            safe_src = ext if ext in ("pdf", "docx", "pptx", "txt") else "pdf"
+        except Exception:
+            safe_src = "pdf"
         return ExtractedDocument(
             document_id=doc_id,
             source_type=safe_src,

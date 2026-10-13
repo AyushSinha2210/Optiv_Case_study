@@ -29,7 +29,7 @@ def resolve_overlaps(candidates: list[Candidate]) -> tuple[list[Candidate], int]
     ordered = sorted(
         candidates,
         key=lambda c: (
-            -PRECEDENCE[c.type],
+            -PRECEDENCE.get(c.type, 0),
             -(c.end - c.start),
             -c.confidence,
             c.start,
