@@ -1,7 +1,6 @@
-"""High-performance PDF adapter using PyMuPDF with selective per-page OCR."""
-
+import concurrent.futures
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from PIL import Image
 
 from .base import BaseAdapter, AdapterPage, AdapterResult
@@ -33,8 +32,9 @@ class PDFAdapter(BaseAdapter):
                 source_type="pdf",
             )
 
-        ocr_engine = None
-        pages: List[AdapterPage] = []
+        # Phase 1: Rapid layout scanning and candidate identification
+        ocr_candidates: List[tuple[int, int, str, int, Image.Image]] = []
+        page_records: List[Dict[str, Any]] = []
         ocr_page_count = 0
         total_ocr_pages = 0
 
@@ -62,60 +62,22 @@ class PDFAdapter(BaseAdapter):
                     needs_ocr = True
 
             if needs_ocr and ocr_page_count < config.max_ocr_pages:
-                if ocr_engine is None:
-                    try:
-                        ocr_engine = get_ocr_engine(config)
-                    except Exception as e:
-                        warnings.append(
-                            WarningInfo(
-                                code="WARN_OCR_UNAVAILABLE",
-                                page=page_num,
-                                message="OCR engine could not be initialized; skipping OCR extraction",
-                            )
-                        )
-                        ocr_engine = False
+                ocr_page_count += 1
+                total_ocr_pages += 1
+                # Render page at 200 DPI fast path
+                pix = page.get_pixmap(dpi=config.default_ocr_dpi)
+                mode = "RGBA" if pix.alpha else "RGB"
+                img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                if mode == "RGBA":
+                    img = img.convert("RGB")
 
-                if ocr_engine:
-                    ocr_page_count += 1
-                    total_ocr_pages += 1
-                    # Render page at 200 DPI fast path
-                    pix = page.get_pixmap(dpi=config.default_ocr_dpi)
-                    mode = "RGBA" if pix.alpha else "RGB"
-                    img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-                    if mode == "RGBA":
-                        img = img.convert("RGB")
-
-                    ocr_res = ocr_engine.process_image(img, page_num=page_num, config=config)
-
-                    if native_char_count > 0 and ocr_res.text:
-                        # Mixed page: native text plus OCR
-                        final_text = f"{native_text}\n\n{ocr_res.text}".strip()
-                        method = "mixed"
-                    else:
-                        final_text = ocr_res.text if ocr_res.text else native_text
-                        method = "ocr" if ocr_res.text else "native"
-
-                    pages.append(
-                        AdapterPage(
-                            page_num=page_num,
-                            label="page",
-                            text=final_text,
-                            method=method,
-                            ocr_confidence=ocr_res.confidence,
-                            warnings=ocr_res.warnings,
-                        )
-                    )
-                else:
-                    pages.append(
-                        AdapterPage(
-                            page_num=page_num,
-                            label="page",
-                            text=native_text,
-                            method="native",
-                            ocr_confidence=None,
-                            warnings=[],
-                        )
-                    )
+                ocr_candidates.append((page_idx, page_num, native_text, native_char_count, img))
+                page_records.append({
+                    "page_num": page_num,
+                    "needs_ocr": True,
+                    "native_text": native_text,
+                    "native_char_count": native_char_count,
+                })
             else:
                 if needs_ocr and ocr_page_count >= config.max_ocr_pages:
                     warnings.append(
@@ -126,6 +88,73 @@ class PDFAdapter(BaseAdapter):
                         )
                     )
 
+                page_records.append({
+                    "page_num": page_num,
+                    "needs_ocr": False,
+                    "native_text": native_text,
+                    "native_char_count": native_char_count,
+                })
+
+        doc.close()
+
+        # Phase 2: Parallel OCR execution across worker pool
+        ocr_results_by_idx: Dict[int, Any] = {}
+        if ocr_candidates:
+            ocr_engine = None
+            try:
+                ocr_engine = get_ocr_engine(config)
+            except Exception:
+                warnings.append(
+                    WarningInfo(
+                        code="WARN_OCR_UNAVAILABLE",
+                        message="OCR engine could not be initialized; skipping OCR extraction",
+                    )
+                )
+
+            if ocr_engine:
+                max_workers = min(config.max_ocr_workers, len(ocr_candidates), 8)
+
+                def _execute_page_ocr(cand: tuple[int, int, str, int, Image.Image]):
+                    p_idx, p_num, _, _, page_img = cand
+                    ocr_res = ocr_engine.process_image(page_img, page_num=p_num, config=config)
+                    return p_idx, ocr_res
+
+                if max_workers > 1 and len(ocr_candidates) > 1:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                        for p_idx, res in executor.map(_execute_page_ocr, ocr_candidates):
+                            ocr_results_by_idx[p_idx] = res
+                else:
+                    for cand in ocr_candidates:
+                        p_idx, res = _execute_page_ocr(cand)
+                        ocr_results_by_idx[p_idx] = res
+
+        # Phase 3: Ordered assembly of pages preserving exact document structure
+        pages: List[AdapterPage] = []
+        for page_idx, rec in enumerate(page_records):
+            page_num = rec["page_num"]
+            native_text = rec["native_text"]
+            native_char_count = rec["native_char_count"]
+
+            if rec["needs_ocr"] and page_idx in ocr_results_by_idx:
+                ocr_res = ocr_results_by_idx[page_idx]
+                if native_char_count > 0 and ocr_res.text:
+                    final_text = f"{native_text}\n\n{ocr_res.text}".strip()
+                    method = "mixed"
+                else:
+                    final_text = ocr_res.text if ocr_res.text else native_text
+                    method = "ocr" if ocr_res.text else "native"
+
+                pages.append(
+                    AdapterPage(
+                        page_num=page_num,
+                        label="page",
+                        text=final_text,
+                        method=method,
+                        ocr_confidence=ocr_res.confidence,
+                        warnings=ocr_res.warnings,
+                    )
+                )
+            else:
                 pages.append(
                     AdapterPage(
                         page_num=page_num,
@@ -136,8 +165,6 @@ class PDFAdapter(BaseAdapter):
                         warnings=[],
                     )
                 )
-
-        doc.close()
 
         # Classify overall source type
         is_scanned = (

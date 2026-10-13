@@ -32,7 +32,7 @@ def luhn_valid(number: str) -> bool:
 
 
 def ssn_valid(value: str) -> bool:
-    """US SSN structure AAA-GG-SSSS: area not 000/666/9xx, group not 00, serial not 0000."""
+    """US SSN structure AAA-GG-SSSS: area not 000/666/900+, group not 00, serial not 0000."""
     parts = value.split("-")
     if len(parts) != 3 or not all(p.isdigit() for p in parts):
         return False
@@ -41,6 +41,17 @@ def ssn_valid(value: str) -> bool:
     if area_n == 0 or area_n == 666 or area_n >= 900:
         return False
     return int(group) != 0 and int(serial) != 0
+
+
+def phone_valid(value: str) -> bool:
+    """Validate phone numbers; discard standard ISO/calendar dates and require 7-15 digits."""
+    clean = value.strip()
+    if re.fullmatch(r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}", clean):
+        return False
+    if re.fullmatch(r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}", clean):
+        return False
+    digits = [c for c in clean if c.isdigit()]
+    return 7 <= len(digits) <= 15
 
 
 def ipv4_valid(value: str) -> bool:
