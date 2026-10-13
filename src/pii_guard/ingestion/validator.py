@@ -45,6 +45,10 @@ def detect_file_signature(path: Path) -> Tuple[Optional[str], bytes]:
     if header.startswith(MAGIC_PNG) or header.startswith(MAGIC_JPEG):
         return "image", header
 
+    # Test for text BOMs (UTF-16 LE/BE, UTF-8 BOM)
+    if header.startswith((b"\xff\xfe", b"\xfe\xff", b"\xef\xbb\xbf")):
+        return "txt", header
+
     # Test for plain text: no null bytes in header sample
     if b"\x00" not in header:
         return "txt", header

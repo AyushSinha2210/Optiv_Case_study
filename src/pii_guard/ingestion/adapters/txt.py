@@ -17,33 +17,48 @@ class TXTAdapter(BaseAdapter):
         text = ""
         used_encoding = "utf-8"
 
-        # 1. Fast-path: Strict UTF-8 decode
-        try:
-            text = raw_bytes.decode("utf-8")
-            used_encoding = "utf-8"
-        except UnicodeDecodeError:
-            # 2. Try Windows-1252 / ISO-8859-1 (standard for Western financial systems)
+        # 1. BOM detection (UTF-16 LE/BE, UTF-8-SIG)
+        if raw_bytes.startswith((b"\xff\xfe", b"\xfe\xff")):
             try:
-                text = raw_bytes.decode("cp1252")
-                used_encoding = "cp1252"
+                text = raw_bytes.decode("utf-16")
+                used_encoding = "utf-16"
             except UnicodeDecodeError:
-                # 3. Use charset-normalizer for arbitrary international encodings
-                detected_text = None
-                try:
-                    import charset_normalizer
-                    detected = charset_normalizer.from_bytes(raw_bytes).best()
-                    if detected is not None and detected.encoding:
-                        detected_text = str(detected)
-                        used_encoding = detected.encoding
-                except ImportError:
-                    pass
+                pass
+        elif raw_bytes.startswith(b"\xef\xbb\xbf"):
+            try:
+                text = raw_bytes.decode("utf-8-sig")
+                used_encoding = "utf-8-sig"
+            except UnicodeDecodeError:
+                pass
 
-                if detected_text is not None:
-                    text = detected_text
-                else:
-                    # 4. Safe fallback
-                    text = raw_bytes.decode("latin-1", errors="replace")
-                    used_encoding = "latin-1"
+        if not text and raw_bytes:
+            # 2. Fast-path: Strict UTF-8 decode
+            try:
+                text = raw_bytes.decode("utf-8")
+                used_encoding = "utf-8"
+            except UnicodeDecodeError:
+                # 3. Try Windows-1252 / ISO-8859-1 (standard for Western financial systems)
+                try:
+                    text = raw_bytes.decode("cp1252")
+                    used_encoding = "cp1252"
+                except UnicodeDecodeError:
+                    # 4. Use charset-normalizer for arbitrary international encodings
+                    detected_text = None
+                    try:
+                        import charset_normalizer
+                        detected = charset_normalizer.from_bytes(raw_bytes).best()
+                        if detected is not None and detected.encoding:
+                            detected_text = str(detected)
+                            used_encoding = detected.encoding
+                    except ImportError:
+                        pass
+
+                    if detected_text is not None:
+                        text = detected_text
+                    else:
+                        # 5. Safe fallback
+                        text = raw_bytes.decode("latin-1", errors="replace")
+                        used_encoding = "latin-1"
 
         # Check for replacement characters
         if "\ufffd" in text:

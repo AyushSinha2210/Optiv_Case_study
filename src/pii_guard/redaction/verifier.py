@@ -29,11 +29,21 @@ def _luhn_valid(value: str) -> bool:
     return checksum % 10 == 0
 
 
+def _is_residual_phone(value: str) -> bool:
+    clean = value.strip()
+    if re.fullmatch(r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}", clean):
+        return False
+    digits = [c for c in clean if c.isdigit()]
+    if len(digits) == 8 and clean.count("-") == 2:
+        return False
+    return len(digits) in (10, 11) or (clean.startswith("+") and 8 <= len(digits) <= 15)
+
+
 def _residual_findings(text: str) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     if EMAIL_PATTERN.search(text):
         findings.append({"check": "residual_email_pattern", "entity_type": "EMAIL"})
-    if PHONE_PATTERN.search(text):
+    if any(_is_residual_phone(m.group()) for m in PHONE_PATTERN.finditer(text)):
         findings.append({"check": "residual_phone_pattern", "entity_type": "PHONE"})
     if GOVERNMENT_ID_PATTERN.search(text):
         findings.append({"check": "residual_government_id_pattern", "entity_type": "GOVERNMENT_ID"})

@@ -32,8 +32,11 @@ class ArtifactEntry(BaseModel):
 class ArtifactManager:
     """Sandbox storage manager enforcing release gate access controls on artifacts."""
 
-    def __init__(self, storage_dir: Optional[Path] = None):
-        self._temp_dir = storage_dir or Path(tempfile.mkdtemp(prefix="pii_guard_artifacts_"))
+    def __init__(self, storage_dir: Optional[Union[Path, str]] = None):
+        if storage_dir is not None:
+            self._temp_dir = Path(storage_dir)
+        else:
+            self._temp_dir = Path(tempfile.mkdtemp(prefix="pii_guard_artifacts_"))
         self._temp_dir.mkdir(parents=True, exist_ok=True)
         self._registry: Dict[str, ArtifactEntry] = {}
 
