@@ -22,6 +22,29 @@ try:
 except ImportError:
     HAS_DOCX = False
 
+try:
+    import pptx
+    from pptx.util import Inches, Pt
+    HAS_PPTX = True
+except ImportError:
+    HAS_PPTX = False
+
+try:
+    import pymupdf
+    HAS_PDF = True
+except ImportError:
+    try:
+        import fitz as pymupdf
+        HAS_PDF = True
+    except ImportError:
+        HAS_PDF = False
+
+try:
+    from PIL import Image, ImageDraw
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
 GENERATOR_VERSION = "1.0.0"
 
 # Synthetic name pools (obviously artificial)
@@ -291,6 +314,408 @@ class SyntheticSampleGenerator:
             "expected_categories": [],
             "expected_entity_count": 0,
             "description": "Arbitrary unsupported binary file to verify input validation failure handling.",
+        })
+
+        # 11. Scenario: Presentation PPTX with Mixed PII
+        pptx_file = self.fixtures_dir / "11_quarterly_briefing.pptx"
+        p_advisor_email = self._rand_email()
+        p_advisor_phone = self._rand_phone()
+        p_client1_email = self._rand_email()
+        p_client2_email = self._rand_email()
+        p_ssn1 = self._rand_ssn()
+        p_ssn2 = self._rand_ssn()
+        p_hotline = self._rand_phone()
+        p_notes_email = self._rand_email()
+
+        if HAS_PPTX:
+            prs = pptx.Presentation()
+            
+            # Slide 1: Title slide
+            slide1 = prs.slides.add_slide(prs.slide_layouts[0])
+            slide1.shapes.title.text = "Cadence Financial Group - Quarterly Client Briefing"
+            subtitle1 = slide1.placeholders[1]
+            subtitle1.text = f"Prepared by Wealth Advisory Lead: {p_advisor_email}\nDirect Phone: {p_advisor_phone}"
+
+            # Slide 2: Table slide
+            slide2 = prs.slides.add_slide(prs.slide_layouts[6])
+            tb2 = slide2.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(8.4), Inches(0.8))
+            tb2.text_frame.text = "Client Portfolio Risk Distribution"
+
+            table_shape = slide2.shapes.add_table(3, 3, Inches(0.8), Inches(1.6), Inches(8.4), Inches(2.2))
+            tbl = table_shape.table
+            tbl.cell(0, 0).text = "Client Name"
+            tbl.cell(0, 1).text = "Taxpayer ID (SSN)"
+            tbl.cell(0, 2).text = "Contact Email"
+
+            tbl.cell(1, 0).text = "Robert Langdon"
+            tbl.cell(1, 1).text = p_ssn1
+            tbl.cell(1, 2).text = p_client1_email
+
+            tbl.cell(2, 0).text = "Eleanor Vance"
+            tbl.cell(2, 1).text = p_ssn2
+            tbl.cell(2, 2).text = p_client2_email
+
+            # Slide 3: Escalation and Speaker Notes
+            slide3 = prs.slides.add_slide(prs.slide_layouts[6])
+            tb3 = slide3.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(8.4), Inches(0.8))
+            tb3.text_frame.text = "Customer Support Escalation Protocols"
+
+            tb3_body = slide3.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(8.4), Inches(3.0))
+            tb3_body.text_frame.text = (
+                f"All urgent customer complaints must follow Cadence incident resolution workflows.\n"
+                f"Emergency dispatch hotline: {p_hotline}"
+            )
+
+            slide3.notes_slide.notes_text_frame.text = (
+                f"Confidential Notes: For unresolved tickets, notify advisor at {p_notes_email}."
+            )
+
+            prs.save(str(pptx_file))
+            fixtures_meta.append({
+                "fixture_id": "synth-011",
+                "scenario": "scenario_pptx_presentation",
+                "file_type": "pptx",
+                "relative_path": "fixtures/11_quarterly_briefing.pptx",
+                "expected_categories": ["EMAIL", "PHONE", "GOVERNMENT_ID"],
+                "expected_entity_count": 6,
+                "description": "PowerPoint presentation (.pptx) with slides, tables, and speaker notes containing synthetic PII.",
+            })
+        else:
+            pptx_file.write_text(f"PPTX Fallback: Advisor {p_advisor_email}, Phone {p_advisor_phone}, SSN {p_ssn1}\n", encoding="utf-8")
+            fixtures_meta.append({
+                "fixture_id": "synth-011",
+                "scenario": "scenario_pptx_presentation",
+                "file_type": "txt",
+                "relative_path": "fixtures/11_quarterly_briefing.pptx",
+                "expected_categories": ["EMAIL", "PHONE", "GOVERNMENT_ID"],
+                "expected_entity_count": 3,
+                "description": "Fallback text format for PPTX scenario.",
+            })
+
+        # 12. Scenario: Clean Presentation Without PII
+        clean_pptx_file = self.fixtures_dir / "12_clean_presentation.pptx"
+        if HAS_PPTX:
+            prs_clean = pptx.Presentation()
+            s1 = prs_clean.slides.add_slide(prs_clean.slide_layouts[0])
+            s1.shapes.title.text = "Cadence Enterprise Architecture & Cloud Migration"
+            s1.placeholders[1].text = "Technical Blueprint - High Availability & Distributed Services"
+
+            s2 = prs_clean.slides.add_slide(prs_clean.slide_layouts[6])
+            tb_clean = s2.shapes.add_textbox(Inches(0.8), Inches(0.5), Inches(8.4), Inches(0.8))
+            tb_clean.text_frame.text = "Microservice Tier Specifications"
+            tb_body = s2.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(8.4), Inches(3.0))
+            tb_body.text_frame.text = (
+                "All ingestion microservices execute in sandboxed ephemeral containers.\n"
+                "Inter-service communication is authenticated with mutual TLS (mTLS).\n"
+                "Zero personal identifiers are processed on public gateways."
+            )
+
+            prs_clean.save(str(clean_pptx_file))
+            fixtures_meta.append({
+                "fixture_id": "synth-012",
+                "scenario": "scenario_pptx_clean",
+                "file_type": "pptx",
+                "relative_path": "fixtures/12_clean_presentation.pptx",
+                "expected_categories": [],
+                "expected_entity_count": 0,
+                "description": "Clean presentation (.pptx) with zero personal identifiers.",
+            })
+        else:
+            clean_pptx_file.write_text("Clean presentation architecture\n", encoding="utf-8")
+            fixtures_meta.append({
+                "fixture_id": "synth-012",
+                "scenario": "scenario_pptx_clean",
+                "file_type": "txt",
+                "relative_path": "fixtures/12_clean_presentation.pptx",
+                "expected_categories": [],
+                "expected_entity_count": 0,
+                "description": "Clean presentation fallback text.",
+            })
+
+        # 13. Scenario: Multi-Page Digital PDF with PII
+        pdf_file = self.fixtures_dir / "13_wealth_management_portfolio.pdf"
+        pdf_client_email = self._rand_email()
+        pdf_client_phone = self._rand_phone()
+        pdf_client_ssn = self._rand_ssn()
+        pdf_officer_email = self._rand_email()
+        pdf_officer_phone = self._rand_phone()
+
+        if HAS_PDF:
+            doc = pymupdf.open()
+            
+            # Page 1
+            page1 = doc.new_page(width=595, height=842)
+            p1_text = (
+                "Cadence Private Wealth Management - Portfolio Statement\n\n"
+                "CONFIDENTIAL CLIENT ADVISORY SUMMARY\n\n"
+                "Client Information\n"
+                "Full Name: Jonathan K. Sampleton\n"
+                f"Taxpayer Identification (SSN): {pdf_client_ssn}\n"
+                f"Primary Email: {pdf_client_email}\n"
+                f"Telephone Contact: {pdf_client_phone}\n\n"
+                "Account Overview\n"
+                "Account Number: CAD-WM-882194\n"
+                "Custodian: Cadence Trust Bank N.A.\n"
+                "Portfolio Strategy: Capital Appreciation & Risk Hedging\n"
+            )
+            page1.insert_text((50, 72), p1_text, fontsize=11)
+
+            # Page 2
+            page2 = doc.new_page(width=595, height=842)
+            p2_text = (
+                "Regulatory Compliance & Risk Disclosure\n\n"
+                "This portfolio statement complies with SEC and FINRA disclosure requirements.\n"
+                "Audited under Cadence Financial Group compliance standards.\n\n"
+                "Compliance Sign-off\n"
+                "Supervising Principal: Marcus Thorne\n"
+                f"Compliance Email: {pdf_officer_email}\n"
+                f"Direct Verification Line: {pdf_officer_phone}\n\n"
+                "Notice: All figures and identifiers are synthetic test data.\n"
+            )
+            page2.insert_text((50, 72), p2_text, fontsize=11)
+
+            doc.save(str(pdf_file))
+            doc.close()
+            fixtures_meta.append({
+                "fixture_id": "synth-013",
+                "scenario": "scenario_pdf_document",
+                "file_type": "pdf",
+                "relative_path": "fixtures/13_wealth_management_portfolio.pdf",
+                "expected_categories": ["EMAIL", "PHONE", "GOVERNMENT_ID"],
+                "expected_entity_count": 5,
+                "description": "Multi-page digital PDF (.pdf) with client records, SSN, emails, and telephone numbers.",
+            })
+        else:
+            pdf_file.write_text(f"PDF Fallback: {pdf_client_email}, {pdf_client_phone}, {pdf_client_ssn}\n", encoding="utf-8")
+            fixtures_meta.append({
+                "fixture_id": "synth-013",
+                "scenario": "scenario_pdf_document",
+                "file_type": "txt",
+                "relative_path": "fixtures/13_wealth_management_portfolio.pdf",
+                "expected_categories": ["EMAIL", "PHONE", "GOVERNMENT_ID"],
+                "expected_entity_count": 3,
+                "description": "Fallback text format for PDF scenario.",
+            })
+
+        # 14. Scenario: Clean Digital PDF Without PII
+        clean_pdf_file = self.fixtures_dir / "14_clean_whitepaper.pdf"
+        if HAS_PDF:
+            doc_clean = pymupdf.open()
+            cp1 = doc_clean.new_page(width=595, height=842)
+            cp1.insert_text(
+                (50, 72),
+                "Cadence Financial AI Architecture Whitepaper\n\n"
+                "Executive Summary\n"
+                "This technical paper presents the mathematical foundations of our zero-leakage redaction pipeline.\n"
+                "The design ensures deterministic guarantees across all ingested media formats.\n\n"
+                "Core Principles:\n"
+                "1. Zero false negatives through defense-in-depth detection.\n"
+                "2. Reversible tokenization with AES-GCM-256 cryptographic isolation.\n"
+                "3. Automated audit logging of all transformation operations.\n",
+                fontsize=11,
+            )
+            cp2 = doc_clean.new_page(width=595, height=842)
+            cp2.insert_text(
+                (50, 72),
+                "Section 2: Formal Verification of State Transitions\n\n"
+                "State machine transitions obey strict monotonic invariance.\n"
+                "Any failed verification immediately aborts the release pipeline under fail-closed policies.\n",
+                fontsize=11,
+            )
+            doc_clean.save(str(clean_pdf_file))
+            doc_clean.close()
+            fixtures_meta.append({
+                "fixture_id": "synth-014",
+                "scenario": "scenario_pdf_clean",
+                "file_type": "pdf",
+                "relative_path": "fixtures/14_clean_whitepaper.pdf",
+                "expected_categories": [],
+                "expected_entity_count": 0,
+                "description": "Clean multi-page PDF (.pdf) with zero personal identifiers.",
+            })
+        else:
+            clean_pdf_file.write_text("Clean PDF whitepaper\n", encoding="utf-8")
+            fixtures_meta.append({
+                "fixture_id": "synth-014",
+                "scenario": "scenario_pdf_clean",
+                "file_type": "txt",
+                "relative_path": "fixtures/14_clean_whitepaper.pdf",
+                "expected_categories": [],
+                "expected_entity_count": 0,
+                "description": "Clean PDF fallback text.",
+            })
+
+        # 15. Scenario: Scanned PDF Attachment
+        scanned_pdf_file = self.fixtures_dir / "15_scanned_id_memorandum.pdf"
+        scan_phone = "(555) 011-4455"
+        if HAS_PDF and HAS_PIL:
+            img = Image.new("RGB", (800, 1000), color=(255, 255, 255))
+            draw = ImageDraw.Draw(img)
+            draw.text(
+                (50, 60),
+                "CADENCE OPERATIONS MEMORANDUM\n\n"
+                "Scanned Verification Slip\n"
+                "Employee ID: CAD-EMP-77129\n"
+                f"Support Desk Phone: {scan_phone}\n"
+                "Authorization Status: APPROVED\n\n"
+                "Notice: Rasterized synthetic scan.\n",
+                fill=(0, 0, 0),
+            )
+            temp_img = self.fixtures_dir / "temp_scan.png"
+            img.save(str(temp_img))
+
+            doc_scan = pymupdf.open()
+            sp = doc_scan.new_page(width=img.width, height=img.height)
+            sp.insert_image(sp.rect, filename=str(temp_img))
+            doc_scan.save(str(scanned_pdf_file))
+            doc_scan.close()
+            if temp_img.exists():
+                temp_img.unlink()
+
+            fixtures_meta.append({
+                "fixture_id": "synth-015",
+                "scenario": "scenario_pdf_scanned",
+                "file_type": "pdf",
+                "relative_path": "fixtures/15_scanned_id_memorandum.pdf",
+                "expected_categories": ["EMPLOYEE_ID", "PHONE"],
+                "expected_entity_count": 2,
+                "description": "Image-only scanned PDF (.pdf) verifying OCR and image fallback handling.",
+            })
+        else:
+            scanned_pdf_file.write_text(f"Scanned fallback: CAD-EMP-77129, {scan_phone}\n", encoding="utf-8")
+            fixtures_meta.append({
+                "fixture_id": "synth-015",
+                "scenario": "scenario_pdf_scanned",
+                "file_type": "txt",
+                "relative_path": "fixtures/15_scanned_id_memorandum.pdf",
+                "expected_categories": ["EMPLOYEE_ID", "PHONE"],
+                "expected_entity_count": 2,
+                "description": "Scanned fallback text.",
+            })
+
+        # 16. Scenario: Rich Commercial Loan DOCX
+        loan_docx_file = self.fixtures_dir / "16_commercial_loan_agreement.docx"
+        l_borrower_email = self._rand_email()
+        l_borrower_phone = self._rand_phone()
+        l_borrower_ssn = self._rand_ssn()
+        l_guarantor_email = self._rand_email()
+        l_guarantor_phone = self._rand_phone()
+
+        if HAS_DOCX:
+            doc_loan = docx.Document()
+            doc_loan.add_heading("Cadence Commercial Credit Agreement", level=1)
+            doc_loan.add_paragraph("Master Facility Loan Document - Confidential Execution Copy")
+            
+            doc_loan.add_heading("Section 1: Borrower Information", level=2)
+            doc_loan.add_paragraph(
+                f"Primary Borrower: Jonathan M. Mockford\n"
+                f"Taxpayer Identification (SSN): {l_borrower_ssn}\n"
+                f"Official Communication Email: {l_borrower_email}\n"
+                f"Telephone Number: {l_borrower_phone}"
+            )
+
+            doc_loan.add_heading("Section 2: Guarantor Schedule", level=2)
+            table_loan = doc_loan.add_table(rows=2, cols=3)
+            t_hdr = table_loan.rows[0].cells
+            t_hdr[0].text = "Guarantor Name"
+            t_hdr[1].text = "Designated Email"
+            t_hdr[2].text = "Emergency Telephone"
+
+            t_row1 = table_loan.rows[1].cells
+            t_row1[0].text = "Apex Holding Group LLC"
+            t_row1[1].text = l_guarantor_email
+            t_row1[2].text = l_guarantor_phone
+
+            doc_loan.save(str(loan_docx_file))
+            fixtures_meta.append({
+                "fixture_id": "synth-016",
+                "scenario": "scenario_docx_loan_agreement",
+                "file_type": "docx",
+                "relative_path": "fixtures/16_commercial_loan_agreement.docx",
+                "expected_categories": ["EMAIL", "PHONE", "GOVERNMENT_ID"],
+                "expected_entity_count": 5,
+                "description": "Multi-section Word document (.docx) with structured borrower tables, SSN, and contacts.",
+            })
+        else:
+            loan_docx_file.write_text(f"DOCX Loan fallback: {l_borrower_ssn}, {l_borrower_email}, {l_borrower_phone}\n", encoding="utf-8")
+            fixtures_meta.append({
+                "fixture_id": "synth-016",
+                "scenario": "scenario_docx_loan_agreement",
+                "file_type": "txt",
+                "relative_path": "fixtures/16_commercial_loan_agreement.docx",
+                "expected_categories": ["EMAIL", "PHONE", "GOVERNMENT_ID"],
+                "expected_entity_count": 3,
+                "description": "DOCX Loan fallback text.",
+            })
+
+        # 17. Scenario: UTF-8 with BOM Encoded Text
+        bom_file = self.fixtures_dir / "17_utf8_bom_account_records.txt"
+        bom_email = self._rand_email()
+        bom_phone = self._rand_phone()
+        bom_text = (
+            "Account Audit Records (UTF-8 BOM)\n\n"
+            f"Customer Contact: {bom_email}\n"
+            f"Escalation Phone: {bom_phone}\n"
+            "Status: Validated\n"
+        )
+        bom_bytes = b"\xef\xbb\xbf" + bom_text.encode("utf-8")
+        bom_file.write_bytes(bom_bytes)
+        fixtures_meta.append({
+            "fixture_id": "synth-017",
+            "scenario": "scenario_utf8_bom",
+            "file_type": "txt",
+            "relative_path": "fixtures/17_utf8_bom_account_records.txt",
+            "expected_categories": ["EMAIL", "PHONE"],
+            "expected_entity_count": 2,
+            "description": "Plain text document encoded in UTF-8 with Byte Order Mark (BOM) containing synthetic PII.",
+        })
+
+        # 18. Scenario: UTF-16 LE Encoded Text
+        utf16_file = self.fixtures_dir / "18_utf16_payroll_export.txt"
+        u16_email = self._rand_email()
+        u16_ssn = self._rand_ssn()
+        u16_text = (
+            "Cadence Global Payroll Export (UTF-16 LE)\n\n"
+            f"Employee Email: {u16_email}\n"
+            f"Employee SSN: {u16_ssn}\n"
+            "Department: Risk Advisory\n"
+        )
+        utf16_file.write_bytes(u16_text.encode("utf-16"))
+        fixtures_meta.append({
+            "fixture_id": "synth-018",
+            "scenario": "scenario_utf16_payroll",
+            "file_type": "txt",
+            "relative_path": "fixtures/18_utf16_payroll_export.txt",
+            "expected_categories": ["EMAIL", "GOVERNMENT_ID"],
+            "expected_entity_count": 2,
+            "description": "Plain text export encoded in UTF-16 LE with BOM containing synthetic SSN and email.",
+        })
+
+        # 19. Scenario: Corrupted PDF Header (Security Boundary)
+        corrupt_file = self.fixtures_dir / "19_corrupted_header.pdf"
+        corrupt_file.write_bytes(b"%PDF-1.7\nCorrupted header content \x00\xff << stream broken >>")
+        fixtures_meta.append({
+            "fixture_id": "synth-019",
+            "scenario": "scenario_corrupted_pdf",
+            "file_type": "pdf",
+            "relative_path": "fixtures/19_corrupted_header.pdf",
+            "expected_categories": [],
+            "expected_entity_count": 0,
+            "description": "Malformed corrupted PDF header testing fail-closed error handling.",
+        })
+
+        # 20. Scenario: Renamed Windows Executable as PPTX (Security Boundary)
+        renamed_exe_file = self.fixtures_dir / "20_renamed_executable.pptx"
+        pe_bytes = b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00This program cannot be run in DOS mode."
+        renamed_exe_file.write_bytes(pe_bytes)
+        fixtures_meta.append({
+            "fixture_id": "synth-020",
+            "scenario": "scenario_renamed_executable_pptx",
+            "file_type": "pptx",
+            "relative_path": "fixtures/20_renamed_executable.pptx",
+            "expected_categories": [],
+            "expected_entity_count": 0,
+            "description": "Malicious Windows PE executable disguised with .pptx extension to test format sniffing rejection.",
         })
 
         # Assemble and write manifest

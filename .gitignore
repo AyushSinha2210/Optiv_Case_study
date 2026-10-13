@@ -30,5 +30,7 @@ node_modules/
 frontend/dist/
 
 # Document Artifacts & Proprietary Case Study Files
-# Strict rule: No PDF files tracked in repository
+# Strict rule: No runtime output PDF files tracked in repository
 *.pdf
+!demo_samples/fixtures/*.pdf
+!tests/fixtures/**/*.pdf

@@ -1,8 +1,8 @@
 {
   "generator_version": "1.0.0",
   "seed": 42,
-  "created_at": "2026-10-13T16:11:45.972337+00:00",
-  "fixture_count": 10,
+  "created_at": "2026-10-13T17:25:04.699156+00:00",
+  "fixture_count": 20,
   "privacy_notice": "All fixtures are 100% synthetically generated for Cadence AI Governance case study demonstration. No real personal records, customer data, or live identifiers are contained.",
   "fixtures": [
     {
@@ -114,6 +114,117 @@
       "expected_categories": [],
       "expected_entity_count": 0,
       "description": "Arbitrary unsupported binary file to verify input validation failure handling."
+    },
+    {
+      "fixture_id": "synth-011",
+      "scenario": "scenario_pptx_presentation",
+      "file_type": "pptx",
+      "relative_path": "fixtures/11_quarterly_briefing.pptx",
+      "expected_categories": [
+        "EMAIL",
+        "PHONE",
+        "GOVERNMENT_ID"
+      ],
+      "expected_entity_count": 6,
+      "description": "PowerPoint presentation (.pptx) with slides, tables, and speaker notes containing synthetic PII."
+    },
+    {
+      "fixture_id": "synth-012",
+      "scenario": "scenario_pptx_clean",
+      "file_type": "pptx",
+      "relative_path": "fixtures/12_clean_presentation.pptx",
+      "expected_categories": [],
+      "expected_entity_count": 0,
+      "description": "Clean presentation (.pptx) with zero personal identifiers."
+    },
+    {
+      "fixture_id": "synth-013",
+      "scenario": "scenario_pdf_document",
+      "file_type": "pdf",
+      "relative_path": "fixtures/13_wealth_management_portfolio.pdf",
+      "expected_categories": [
+        "EMAIL",
+        "PHONE",
+        "GOVERNMENT_ID"
+      ],
+      "expected_entity_count": 5,
+      "description": "Multi-page digital PDF (.pdf) with client records, SSN, emails, and telephone numbers."
+    },
+    {
+      "fixture_id": "synth-014",
+      "scenario": "scenario_pdf_clean",
+      "file_type": "pdf",
+      "relative_path": "fixtures/14_clean_whitepaper.pdf",
+      "expected_categories": [],
+      "expected_entity_count": 0,
+      "description": "Clean multi-page PDF (.pdf) with zero personal identifiers."
+    },
+    {
+      "fixture_id": "synth-015",
+      "scenario": "scenario_pdf_scanned",
+      "file_type": "pdf",
+      "relative_path": "fixtures/15_scanned_id_memorandum.pdf",
+      "expected_categories": [
+        "EMPLOYEE_ID",
+        "PHONE"
+      ],
+      "expected_entity_count": 2,
+      "description": "Image-only scanned PDF (.pdf) verifying OCR and image fallback handling."
+    },
+    {
+      "fixture_id": "synth-016",
+      "scenario": "scenario_docx_loan_agreement",
+      "file_type": "docx",
+      "relative_path": "fixtures/16_commercial_loan_agreement.docx",
+      "expected_categories": [
+        "EMAIL",
+        "PHONE",
+        "GOVERNMENT_ID"
+      ],
+      "expected_entity_count": 5,
+      "description": "Multi-section Word document (.docx) with structured borrower tables, SSN, and contacts."
+    },
+    {
+      "fixture_id": "synth-017",
+      "scenario": "scenario_utf8_bom",
+      "file_type": "txt",
+      "relative_path": "fixtures/17_utf8_bom_account_records.txt",
+      "expected_categories": [
+        "EMAIL",
+        "PHONE"
+      ],
+      "expected_entity_count": 2,
+      "description": "Plain text document encoded in UTF-8 with Byte Order Mark (BOM) containing synthetic PII."
+    },
+    {
+      "fixture_id": "synth-018",
+      "scenario": "scenario_utf16_payroll",
+      "file_type": "txt",
+      "relative_path": "fixtures/18_utf16_payroll_export.txt",
+      "expected_categories": [
+        "EMAIL",
+        "GOVERNMENT_ID"
+      ],
+      "expected_entity_count": 2,
+      "description": "Plain text export encoded in UTF-16 LE with BOM containing synthetic SSN and email."
+    },
+    {
+      "fixture_id": "synth-019",
+      "scenario": "scenario_corrupted_pdf",
+      "file_type": "pdf",
+      "relative_path": "fixtures/19_corrupted_header.pdf",
+      "expected_categories": [],
+      "expected_entity_count": 0,
+      "description": "Malformed corrupted PDF header testing fail-closed error handling."
+    },
+    {
+      "fixture_id": "synth-020",
+      "scenario": "scenario_renamed_executable_pptx",
+      "file_type": "pptx",
+      "relative_path": "fixtures/20_renamed_executable.pptx",
+      "expected_categories": [],
+      "expected_entity_count": 0,
+      "description": "Malicious Windows PE executable disguised with .pptx extension to test format sniffing rejection."
     }
   ]
 }

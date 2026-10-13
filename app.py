@@ -73,6 +73,31 @@ DEMO_SCENARIOS = {
         "description": "Arbitrary unsupported binary file to test extension sniffing and validation.",
         "expected": "VALIDATION REJECTED (Unsupported extension)",
     },
+    "9. Quarterly Client Briefing (PowerPoint PPTX)": {
+        "file": "11_quarterly_briefing.pptx",
+        "description": "PowerPoint presentation with slides, tables, and speaker notes containing synthetic PII.",
+        "expected": "PASS / RELEASED (PPTX slides, tables, and notes parsed)",
+    },
+    "10. Wealth Management Statement (Digital PDF)": {
+        "file": "13_wealth_management_portfolio.pdf",
+        "description": "Multi-page digital PDF statement with customer details, taxpayer IDs, and compliance officer contacts.",
+        "expected": "PASS / RELEASED (PDF layout, tables, and PII masked)",
+    },
+    "11. Commercial Credit Agreement (Rich DOCX)": {
+        "file": "16_commercial_loan_agreement.docx",
+        "description": "Multi-section Word credit agreement with borrower SSN and guarantor contact tables.",
+        "expected": "PASS / RELEASED (DOCX multi-section document redacted)",
+    },
+    "12. Clean Architecture Presentation (PPTX - 0 PII)": {
+        "file": "12_clean_presentation.pptx",
+        "description": "Clean technical presentation with zero personal identifiers.",
+        "expected": "PASS / RELEASED (0 PII detected, 0 redactions)",
+    },
+    "13. Clean Governance Whitepaper (PDF - 0 PII)": {
+        "file": "14_clean_whitepaper.pdf",
+        "description": "Clean multi-page PDF whitepaper with zero personal identifiers.",
+        "expected": "PASS / RELEASED (0 PII detected, 0 redactions)",
+    },
 }
 
 

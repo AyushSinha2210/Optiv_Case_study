@@ -19,7 +19,7 @@ def test_generator_determinism(tmp_path):
     m2 = gen2.generate_all()
 
     assert m1["fixture_count"] == m2["fixture_count"]
-    assert len(m1["fixtures"]) == 10
+    assert len(m1["fixtures"]) == 20
 
     # Compare text contents of fixtures
     txt1 = (dir1 / "fixtures" / "01_synthetic_email.txt").read_text(encoding="utf-8")
