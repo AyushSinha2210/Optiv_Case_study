@@ -8,8 +8,9 @@ if independent post-redaction verification is strictly PASS and release is autho
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any, List
 
 try:
     import streamlit as st
@@ -27,6 +28,52 @@ from src.pii_guard.reporting.export import export_to_json
 # Supported formats and security limits
 SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".txt", ".text"]
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+
+# Pre-configured demonstration scenarios mapped to repo fixtures
+DEMO_FIXTURES_DIR = Path(__file__).resolve().parent / "demo_samples" / "fixtures"
+
+DEMO_SCENARIOS = {
+    "1. Single Category PII (Email Notice)": {
+        "file": "01_synthetic_email.txt",
+        "description": "Customer notice containing a single synthetic EMAIL_ADDRESS entity.",
+        "expected": "PASS / RELEASED (1 Email masked)",
+    },
+    "2. Multi-Category PII (Wire Transfer & Loan)": {
+        "file": "03_mixed_pii.txt",
+        "description": "Cadence Financial document containing mixed SSN, Email, Phone, Credit Card, and IP address.",
+        "expected": "PASS / RELEASED (Multi-category entities masked)",
+    },
+    "3. Benign Document (Clean / Zero PII)": {
+        "file": "04_clean_no_pii.txt",
+        "description": "Public financial market commentary with zero detectable PII entities.",
+        "expected": "PASS / RELEASED (0 PII detected, 0 redactions)",
+    },
+    "4. Repeated Entities (Recurring SSNs & Names)": {
+        "file": "05_repeated_entities.txt",
+        "description": "Audit document containing repeated occurrences of the same SSN and account tokens.",
+        "expected": "PASS / RELEASED (All occurrences masked right-to-left)",
+    },
+    "5. Complex Layout DOCX (Mortgage Application)": {
+        "file": "06_multi_category.docx",
+        "description": "Word DOCX format document with interleaved paragraphs and sensitive data.",
+        "expected": "PASS / RELEASED (DOCX adapter layout preserved)",
+    },
+    "6. International & Unicode Formats": {
+        "file": "07_unicode_international.txt",
+        "description": "Multilingual document containing Indian PAN cards, international phones, and Unicode accents.",
+        "expected": "PASS / RELEASED (NFC-normalized unicode preservation)",
+    },
+    "7. Security Boundary: Empty Document (0 Bytes)": {
+        "file": "08_empty_document.txt",
+        "description": "Zero-byte file payload to validate fail-closed input rejection.",
+        "expected": "VALIDATION REJECTED (Zero bytes)",
+    },
+    "8. Security Boundary: Unsupported Binary (.xyz)": {
+        "file": "10_malformed_binary.xyz",
+        "description": "Arbitrary unsupported binary file to test extension sniffing and validation.",
+        "expected": "VALIDATION REJECTED (Unsupported extension)",
+    },
+}
 
 
 def validate_uploaded_file(uploaded_file) -> Tuple[bool, Optional[str]]:
@@ -61,7 +108,7 @@ def main():
     st.title("🛡️ PII Guard: AI Governance & Data Protection Pipeline")
     st.caption("Cadence Financial Group — Cyber Strategy & Automated Redaction Release Gate")
 
-    # Sidebar: Policy and Configuration
+    # Sidebar: Policy, Mode Selection, and Controls
     with st.sidebar:
         st.header("📋 AI Governance Policy")
         st.markdown(
@@ -73,6 +120,14 @@ def main():
             """
         )
         st.markdown("---")
+        st.subheader("🎯 Execution Mode")
+        input_mode = st.radio(
+            "Select input source:",
+            ["🧪 Pre-built Demo Scenarios", "📁 Custom File Upload"],
+            index=0,
+        )
+
+        st.markdown("---")
         st.subheader("⚙️ Verification Gate Controls")
         sim_leakage = st.checkbox(
             "Simulate Verification Leakage (Test Blocked Gate)",
@@ -80,49 +135,82 @@ def main():
             help="Simulates finding residual PII during verification to demonstrate fail-closed release blocking.",
         )
         st.markdown("---")
-        st.caption("Version: 1.0.0 | Member 5: Tirth & Member 4: Nancy")
+        st.caption("Version: 1.0.0 | Enterprise Security Integration | Cadence Financial Group")
 
-    # Document Upload Section
-    st.subheader("1. Document Ingestion & Validation")
-    uploaded = st.file_uploader(
-        "Upload document for PII analysis (PDF, DOCX, PPTX, TXT):",
-        type=["pdf", "docx", "pptx", "txt"],
-        help="Maximum file size: 50 MB.",
-    )
+    # Document Selection & Input Processing
+    file_bytes: Optional[bytes] = None
+    file_name: Optional[str] = None
 
-    if uploaded is not None:
-        is_valid, validation_err = validate_uploaded_file(uploaded)
+    if input_mode == "🧪 Pre-built Demo Scenarios":
+        st.subheader("1. Deterministic Demonstration Scenario")
+        selected_scenario_name = st.selectbox(
+            "Choose a certified demonstration scenario:",
+            list(DEMO_SCENARIOS.keys()),
+            index=1,  # Default to mixed PII
+        )
+        scenario_meta = DEMO_SCENARIOS[selected_scenario_name]
+        fixture_path = DEMO_FIXTURES_DIR / scenario_meta["file"]
+
+        st.info(
+            f"**Scenario:** {scenario_meta['description']}\n\n"
+            f"**Fixture File:** `{scenario_meta['file']}` | **Expected Outcome:** {scenario_meta['expected']}"
+        )
+
+        if fixture_path.exists():
+            file_bytes = fixture_path.read_bytes()
+            file_name = scenario_meta["file"]
+        else:
+            st.error(f"Fixture file not found: `{fixture_path}`")
+
+    else:
+        st.subheader("1. Document Ingestion & Validation")
+        uploaded = st.file_uploader(
+            "Upload document for PII analysis (PDF, DOCX, PPTX, TXT):",
+            type=["pdf", "docx", "pptx", "txt"],
+            help="Maximum file size: 50 MB.",
+        )
+        if uploaded is not None:
+            file_bytes = uploaded.getvalue()
+            file_name = uploaded.name
+
+    if file_bytes is not None and file_name is not None:
+        # Mock uploaded file object for validate_uploaded_file compatibility
+        class _UploadProxy:
+            def __init__(self, name: str, size: int):
+                self.name = name
+                self.size = size
+
+        proxy = _UploadProxy(file_name, len(file_bytes))
+        is_valid, validation_err = validate_uploaded_file(proxy)
+
         if not is_valid:
-            st.error(f"❌ Validation Rejected: {validation_err}")
+            st.error(f"❌ Input Validation Failed (Security Boundary): {validation_err}")
+            st.caption("The fail-closed ingestion gate halted execution before processing.")
             return
 
-        st.success(f"File validated: `{uploaded.name}` ({uploaded.size:,} bytes)")
+        st.success(f"File validated: `{file_name}` ({len(file_bytes):,} bytes)")
 
         process_btn = st.button("🚀 Execute Protection Pipeline", type="primary")
 
         if process_btn:
             progress_bar = st.progress(0, text="Initializing pipeline...")
-            status_box = st.empty()
 
             # Safe temporary file creation with guaranteed cleanup
-            suffix = Path(uploaded.name).suffix.lower()
+            suffix = Path(file_name).suffix.lower()
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
                 tmp_path = Path(tmp_file.name)
-                tmp_file.write(uploaded.getbuffer())
+                tmp_file.write(file_bytes)
 
             try:
                 progress_bar.progress(20, text="Ingesting & extracting document structure...")
-                time_start = st.empty()
-
                 options = {"simulate_verification_failure": sim_leakage}
                 result = process_document(str(tmp_path), options=options)
 
                 progress_bar.progress(100, text="Processing complete.")
                 st.session_state["latest_result"] = result
-                st.session_state["latest_filename"] = uploaded.name
+                st.session_state["latest_filename"] = file_name
 
             finally:
-                # Guaranteed cleanup of uploaded temporary payload
                 if tmp_path.exists():
                     try:
                         tmp_path.unlink()
@@ -158,16 +246,46 @@ def main():
 
         # Operational Metrics Row
         m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("Document ID", res.document_id)
+        m1.metric("Document ID", res.document_id[:8] + "...")
         m2.metric("Source Format", (res.source_type or "unknown").upper())
         m3.metric("Pages / Slides", res.pages_count)
         m4.metric("Entities Detected", sum(res.category_counts.values()))
         m5.metric("Redactions Masked", res.redactions_applied)
 
         # Tabbed Details View
-        tab_entities, tab_preview, tab_audit, tab_report = st.tabs(
-            ["📊 Detected Categories", "👁️ Redacted Preview", "📜 Sanitized Audit Trail", "📑 Formal Report"]
+        tab_timeline, tab_entities, tab_preview, tab_audit, tab_report = st.tabs(
+            [
+                "⏱️ Stage Execution Timeline",
+                "📊 Detected Categories",
+                "👁️ Redacted Preview",
+                "📜 Sanitized Audit Trail",
+                "📑 Formal Report",
+            ]
         )
+
+        with tab_timeline:
+            st.markdown("#### Real Pipeline Stage Transitions & Durations")
+            st.caption("Recorded in real-time by `PipelineStateManager` across all 7 lifecycle stages.")
+
+            if res.stage_history:
+                timeline_rows = []
+                prev_time = res.started_at
+                for idx, t in enumerate(res.stage_history):
+                    step_dt = t.timestamp
+                    duration_s = max(0.0, (step_dt - prev_time).total_seconds())
+                    timeline_rows.append({
+                        "Step": idx + 1,
+                        "From Stage": t.from_stage.value if t.from_stage else "INITIAL",
+                        "To Stage": t.to_stage.value,
+                        "Timestamp (UTC)": step_dt.strftime("%H:%M:%S.%f")[:-3],
+                        "Stage Duration": f"{duration_s:.3f}s",
+                        "Message": t.message or "Stage completed",
+                    })
+                    prev_time = step_dt
+
+                st.table(timeline_rows)
+            else:
+                st.info("No stage transition records available.")
 
         with tab_entities:
             st.markdown("#### PII Breakdown by Classification Taxonomy")

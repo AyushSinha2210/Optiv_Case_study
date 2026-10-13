@@ -65,3 +65,21 @@ def test_app_imports_cleanly():
     import app
     assert hasattr(app, "main")
     assert hasattr(app, "validate_uploaded_file")
+    assert hasattr(app, "DEMO_SCENARIOS")
+
+
+def test_demo_scenarios_configured_and_fixtures_exist():
+    """Verify all pre-built demo scenarios reference existing synthetic fixtures."""
+    import app
+    from pathlib import Path
+
+    assert len(app.DEMO_SCENARIOS) >= 7
+    fixtures_dir = app.DEMO_FIXTURES_DIR
+    assert fixtures_dir.exists(), f"Fixtures directory missing: {fixtures_dir}"
+
+    for name, meta in app.DEMO_SCENARIOS.items():
+        fixture_file = fixtures_dir / meta["file"]
+        assert fixture_file.exists(), f"Demo scenario '{name}' references missing file: {fixture_file}"
+        assert "description" in meta
+        assert "expected" in meta
+

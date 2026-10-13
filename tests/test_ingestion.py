@@ -1,12 +1,15 @@
 """Comprehensive test suite for the Ingestion, OCR, and Quality module."""
 
 import logging
+import shutil
 from pathlib import Path
 import pytest
 
 from src.pii_guard.ingestion import extract_document, IngestionConfig
 from src.pii_guard.ingestion.normalize import normalize_text
 from src.pii_guard.ingestion.quality import calculate_quality_metrics, GroundTruthStructure
+
+TESSERACT_AVAILABLE = shutil.which("tesseract") is not None
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "ingestion"
 
@@ -34,6 +37,7 @@ def test_extract_clean_text_pdf():
     assert "Compliance Sign-off" in doc.text
 
 
+@pytest.mark.skipif(not TESSERACT_AVAILABLE, reason="Tesseract OCR binary not found on system PATH")
 def test_extract_scanned_pdf():
     """Verify image-only scanned PDF uses OCR and returns valid text."""
     doc = extract_document(str(FIXTURES_DIR / "scanned_page.pdf"))
@@ -44,6 +48,7 @@ def test_extract_scanned_pdf():
     assert "Account Authorization" in doc.text or "Julian Thorne" in doc.text or "CAD-77129" in doc.text
 
 
+@pytest.mark.skipif(not TESSERACT_AVAILABLE, reason="Tesseract OCR binary not found on system PATH")
 def test_extract_rotated_scanned_pdf():
     """Verify rotated scanned PDF is handled gracefully with OSD rotation."""
     doc = extract_document(str(FIXTURES_DIR / "rotated_scanned.pdf"))
@@ -51,6 +56,7 @@ def test_extract_rotated_scanned_pdf():
     assert len(doc.pages) == 1
 
 
+@pytest.mark.skipif(not TESSERACT_AVAILABLE, reason="Tesseract OCR binary not found on system PATH")
 def test_extract_mixed_pdf():
     """Verify mixed digital and scanned PDF handles both methods across pages."""
     doc = extract_document(str(FIXTURES_DIR / "mixed.pdf"))

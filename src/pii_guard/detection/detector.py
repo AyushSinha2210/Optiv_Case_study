@@ -34,7 +34,7 @@ def detect_pii(
             (an ExtractedDocument from Member 1, or a compatible stand-in).
         ner_backend: optional `text -> [(label, start, end, score)]` callable.
             None disables PERSON detection and adds a NER_UNAVAILABLE warning.
-        options: optional dictionary of detection options for forward compatibility.
+        options: optional configuration dictionary.
 
     Raises:
         DetectionInputError: if the document is malformed or extraction failed.
@@ -81,6 +81,10 @@ def detect_pii(
     if dropped:
         warnings.append(_warn("OVERLAP_RESOLVED", f"{dropped} overlapping candidate(s) resolved by precedence."))
 
+    confidence_threshold = 0.0
+    if options and "confidence_threshold" in options:
+        confidence_threshold = float(options["confidence_threshold"])
+
     entities = [
         DetectedEntity(
             type=c.type,
@@ -89,6 +93,7 @@ def detect_pii(
             confidence=round(c.confidence, 4),
         )
         for c in resolved
+        if c.confidence >= confidence_threshold
     ]
     return DetectionResult(document_id=document_id, entities=entities, warnings=warnings)
 
@@ -106,4 +111,7 @@ class PIIDetector:
 
     def detect(self, doc: "ExtractedDocument", options: Optional[dict[str, Any]] = None) -> DetectionResult:
         """Scan ExtractedDocument.text and return Contract B DetectionResult."""
-        return detect_pii(doc, ner_backend=self.ner_backend, options=options)
+        opts = dict(options or {})
+        if "confidence_threshold" not in opts:
+            opts["confidence_threshold"] = self.confidence_threshold
+        return detect_pii(doc, ner_backend=self.ner_backend, options=opts)

@@ -26,6 +26,8 @@ dist/
 build/
 *.tmp
 .pytest_cache/
+node_modules/
+frontend/dist/
 
 # Document Artifacts & Proprietary Case Study Files
 # Strict rule: No PDF files tracked in repository

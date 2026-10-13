@@ -25,10 +25,15 @@ _IPV4 = re.compile(
     r"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}"
     r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?!\d)(?!\.\d)"
 )
-# Accepts +CC prefix, (AAA) BBB-CCCC, AAA-BBB-CCCC, AAAAA-BBBBB (e.g. +91 98765 43210).
+# Accepts +CC prefix, (AAA) BBB-CCCC, (AAA) BBBB-CCCC, AAA-BBB-CCCC, AA-BBB-CCCC, AAAAA-BBBBB (e.g. +91 98765 43210).
 _PHONE = re.compile(
     r"(?<![\w+])(?:\+\d{1,3}[ .-]?)?"
-    r"(?:\(\d{3}\)[ .-]?\d{3}[ .-]?\d{4}|\d{3}[ .-]?\d{3}[ .-]?\d{4}|\d{5}[ .-]?\d{5})"
+    r"(?:"
+    r"\(\d{3}\)[ .-]?\d{3,4}[ .-]?\d{4}"
+    r"|\d{3}[ .-]\d{3}[ .-]\d{4}"
+    r"|\d{5}[ .-]?\d{5}"
+    r"|\d{2}[ .-]\d{3}[ .-]\d{4}"
+    r")"
     r"(?!\w)"
 )
 
