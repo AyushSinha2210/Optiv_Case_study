@@ -93,7 +93,30 @@ def sanitize_error_message(msg: str) -> str:
 
 ---
 
-## 5. Security & Invariant Automated Verification
+## 5. Member 3 Redaction, Verification & Structure Preservation
+
+### Rules
+- Detection offsets are zero-based and end-exclusive into the exact extracted text.
+- Unknown, invalid, out-of-range, and overlapping spans are rejected.
+- Replacements are applied from the highest offset to the lowest.
+- Findings never contain raw document text, matched values, or source snippets.
+- Verification checks both known detected values and independent residual patterns.
+- The saved artifact must be reopened by a format-specific reader before `PASS`.
+- Missing or failed verification means `release_allowed=False`.
+- Only synthetic values may be committed to tests and fixtures.
+
+### Saved Artifact Verification
+`redact_and_validate()` accepts `artifact_ref` and `artifact_text_reader`. The reader must reopen the actual saved output and extract its text. For PDF, covering text with a black rectangle is not sufficient: the original text must not remain selectable or extractable. PDF/DOCX/PPTX adapters should also check supported hidden layers, comments, and metadata.
+
+### Structure Score
+The included score checks line boundaries and heading counts. Format adapters can add page, paragraph, table, or slide checks before claiming full structure preservation.
+
+### Known Limitation
+No verifier can prove that every possible PII value was detected. Missed names, addresses, or unusual identifiers remain residual risk and must be documented.
+
+---
+
+## 6. Security & Invariant Automated Verification
 
 Our test suite enforces these invariants through automated regression tests:
 
@@ -115,6 +138,7 @@ Our test suite enforces these invariants through automated regression tests:
    - Tests path traversal payloads: `../secret.txt`, `..\secret.txt`, `/etc/passwd`, `C:\Windows\System32\cmd.exe`, `art-123\x00malicious`, `art-123/../../etc/passwd`.
    - Verifies all payloads raise `ArtifactSecurityError` before executing filesystem queries.
 
+<<<<<<< HEAD
 ---
 
 ## 6. Member 3 Security Notes & Release-Gate Handshake
@@ -161,3 +185,7 @@ addresses, or unusual identifiers remain residual risk and must be documented.
 ```bash
 pytest -q tests/test_redaction.py
 ```
+=======
+4. **`tests/test_redaction.py` (Member 3 Verification Tests):**
+   - Verifies right-to-left span replacements, out-of-range rejection, overlap rejection, unknown category rejection, and reopened clean artifact release gating.
+>>>>>>> origin/feature/member5-integration

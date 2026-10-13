@@ -33,7 +33,14 @@ def luhn_valid(number: str) -> bool:
 
 def ssn_valid(value: str) -> bool:
     """US SSN structure AAA-GG-SSSS: area not 000/666/9xx, group not 00, serial not 0000."""
+<<<<<<< HEAD
     area, group, serial = value.split("-")
+=======
+    parts = value.split("-")
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return False
+    area, group, serial = parts
+>>>>>>> origin/feature/member5-integration
     area_n = int(area)
     if area_n == 0 or area_n == 666 or area_n >= 900:
         return False

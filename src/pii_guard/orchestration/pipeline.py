@@ -8,11 +8,13 @@ A document is released ONLY if verification_status is PASS AND release_allowed i
 Under all other conditions, artifact release is strictly blocked.
 """
 
+from __future__ import annotations
+
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, TYPE_CHECKING
 
 from .state import PipelineStage, PipelineStateManager
 from .errors import sanitize_error_message
@@ -24,8 +26,9 @@ from .models import (
 from .artifacts import ArtifactManager, get_default_artifact_manager
 from ..ingestion.extractor import extract_document
 from ..ingestion.config import IngestionConfig
-from ..reporting.audit import AuditTrail, get_global_audit_trail
-from ..reporting.report_generator import generate_report
+
+if TYPE_CHECKING:
+    from ..reporting.audit import AuditTrail
 
 
 def process_document(
@@ -46,7 +49,11 @@ def process_document(
     options = options or {}
     start_time = datetime.now(timezone.utc)
     doc_id = f"doc-{uuid.uuid4().hex[:12]}"
-    trail = audit_trail or get_global_audit_trail()
+    if audit_trail is None:
+        from ..reporting.audit import get_global_audit_trail
+        trail = get_global_audit_trail()
+    else:
+        trail = audit_trail
     art_mgr = artifact_manager or get_default_artifact_manager()
 
     state_mgr = PipelineStateManager()
@@ -291,6 +298,7 @@ def process_document(
         )
 
         # Generate report and audit references
+        from ..reporting.report_generator import generate_report
         report = generate_report(result)
         result.report_id = f"rep-{doc_id}"
         result.audit_id = f"aud-{doc_id}"

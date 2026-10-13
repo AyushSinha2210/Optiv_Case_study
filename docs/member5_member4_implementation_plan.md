@@ -3,7 +3,7 @@
 
 **Author:** Tirth (Member 5: Orchestration, UI, Audit & Integration; also completing Member 4 Nancy's coding responsibilities)  
 **Date:** 2026-10-13  
-**Target Repository:** Optive PII Protection Case Study (`Optive_Case_study`)  
+**Target Repository:** Optiv PII Protection Case Study (`Optiv_Case_study`)  
 **Active Branch:** `feature/member5-integration`  
 **Overall Implementation Status:** **100% COMPLETED**
 

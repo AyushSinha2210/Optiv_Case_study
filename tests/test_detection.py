@@ -94,6 +94,10 @@ def test_pan_holder_type_check():
         ("PAN ABCPE1234F on file.", "GOVERNMENT_ID", "ABCPE1234F"),
         ("Card 4111 1111 1111 1111 declined.", "FINANCIAL_IDENTIFIER", "4111 1111 1111 1111"),
         ("Ref EMP-10482 assigned.", "EMPLOYEE_ID", "EMP-10482"),
+<<<<<<< HEAD
+=======
+        ("Employee CAD-EMP-83563 on site.", "EMPLOYEE_ID", "CAD-EMP-83563"),
+>>>>>>> origin/feature/member5-integration
         ("From 192.0.2.44 today.", "IP_ADDRESS", "192.0.2.44"),
     ],
 )
@@ -366,3 +370,27 @@ def test_pattern_only_ground_truth_scores_perfectly_on_current_corpus():
     )
     assert report["overall"]["fn"] == 0
     assert report["overall"]["fp"] == 0
+<<<<<<< HEAD
+=======
+
+
+def test_resolve_overlaps_unknown_candidate_type():
+    from src.pii_guard.detection.classifier import resolve_overlaps
+    from src.pii_guard.detection.schemas import Candidate
+    candidates = [
+        Candidate(type="UNKNOWN_CUSTOM_TYPE", start=0, end=10, confidence=0.8, source="test"),
+        Candidate(type="EMAIL", start=5, end=15, confidence=0.98, source="test"),
+    ]
+    accepted, dropped = resolve_overlaps(candidates)
+    assert len(accepted) == 1
+    assert accepted[0].type == "EMAIL"
+    assert dropped == 1
+
+
+def test_ssn_valid_malformed_inputs():
+    from src.pii_guard.detection.validators import ssn_valid
+    assert not ssn_valid("")
+    assert not ssn_valid("123-45")
+    assert not ssn_valid("123-45-6789-extra")
+    assert not ssn_valid("abc-de-fghi")
+>>>>>>> origin/feature/member5-integration

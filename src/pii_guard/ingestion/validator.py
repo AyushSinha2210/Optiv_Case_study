@@ -106,8 +106,21 @@ def validate_file(file_path: str, config: Optional[IngestionConfig] = None) -> V
 
     Guarantees: Never raises an exception; always returns a ValidationResult.
     """
+    if not file_path or not isinstance(file_path, (str, Path)):
+        return ValidationResult(
+            is_valid=False,
+            error_code="ERR_INVALID_FILE_PATH",
+            error_message="Specified file path is empty or invalid",
+        )
     cfg = config or IngestionConfig()
-    path = Path(file_path)
+    try:
+        path = Path(file_path)
+    except Exception:
+        return ValidationResult(
+            is_valid=False,
+            error_code="ERR_INVALID_FILE_PATH",
+            error_message="Specified file path cannot be resolved as a valid path",
+        )
 
     # 1. Existence and file type
     if not path.exists():
@@ -170,25 +183,43 @@ def validate_file(file_path: str, config: Optional[IngestionConfig] = None) -> V
             )
         # Check if PDF is encrypted or corrupt via lightweight check
         try:
-            import pymupdf
-            doc = pymupdf.open(str(path))
-            if doc.is_encrypted:
+            try:
+                import pymupdf
+                doc = pymupdf.open(str(path))
+                if doc.is_encrypted:
+                    doc.close()
+                    return ValidationResult(
+                        is_valid=False,
+                        detected_format="pdf",
+                        error_code="ERR_PASSWORD_PROTECTED",
+                        error_message="PDF document is encrypted or password-protected",
+                    )
+                if len(doc) == 0:
+                    doc.close()
+                    return ValidationResult(
+                        is_valid=False,
+                        detected_format="pdf",
+                        error_code="ERR_CORRUPT_FILE",
+                        error_message="PDF document contains zero pages or is corrupted",
+                    )
                 doc.close()
-                return ValidationResult(
-                    is_valid=False,
-                    detected_format="pdf",
-                    error_code="ERR_PASSWORD_PROTECTED",
-                    error_message="PDF document is encrypted or password-protected",
-                )
-            if len(doc) == 0:
-                doc.close()
-                return ValidationResult(
-                    is_valid=False,
-                    detected_format="pdf",
-                    error_code="ERR_CORRUPT_FILE",
-                    error_message="PDF document contains zero pages or is corrupted",
-                )
-            doc.close()
+            except ImportError:
+                import pypdf
+                reader = pypdf.PdfReader(str(path))
+                if reader.is_encrypted:
+                    return ValidationResult(
+                        is_valid=False,
+                        detected_format="pdf",
+                        error_code="ERR_PASSWORD_PROTECTED",
+                        error_message="PDF document is encrypted or password-protected",
+                    )
+                if len(reader.pages) == 0:
+                    return ValidationResult(
+                        is_valid=False,
+                        detected_format="pdf",
+                        error_code="ERR_CORRUPT_FILE",
+                        error_message="PDF document contains zero pages or is corrupted",
+                    )
         except Exception:
             return ValidationResult(
                 is_valid=False,

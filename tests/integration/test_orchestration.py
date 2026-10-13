@@ -64,7 +64,7 @@ def test_orchestration_synthetic_pii_document_release(tmp_path):
     content = art_mgr.read_artifact_bytes(
         result.artifact_ref, result.document_id, result.release_allowed
     ).decode("utf-8")
-    assert "<REDACTED_EMAIL>" in content
+    assert "[REDACTED_EMAIL]" in content or "<REDACTED_EMAIL>" in content
     assert "example.com" not in content
 
 

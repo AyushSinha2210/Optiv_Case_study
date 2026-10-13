@@ -42,12 +42,25 @@ def redact_and_validate(
     *,
     artifact_ref: str | None = None,
     artifact_text_reader: Callable[[Any], str] | None = None,
+<<<<<<< HEAD
     minimum_structure_score: float = 1.0,
+=======
+    artifact_manager: Any | None = None,
+    minimum_structure_score: float = 1.0,
+    simulate_verification_failure: bool = False,
+    **kwargs: Any,
+>>>>>>> origin/feature/member5-integration
 ) -> RedactionResult:
     """Redact, verify, and return Contract C with fail-closed release behavior.
 
     ``artifact_text_reader`` must reopen the actual saved output. Omitting it
     intentionally produces INCOMPLETE and prevents release.
+<<<<<<< HEAD
+=======
+
+    If ``artifact_manager`` is provided, the redacted content is persisted in the
+    managed sandbox and automatically validated via the artifact reader.
+>>>>>>> origin/feature/member5-integration
     """
 
     document_id = getattr(document, "document_id", None)
@@ -79,10 +92,40 @@ def redact_and_validate(
     except RedactionError:
         return _safe_result(document_id, "FAIL", "INVALID_REDACTION_INPUT")
 
+<<<<<<< HEAD
     text_check = verify_redacted_text(original_text, application.text, entities)
     artifact_check = verify_saved_artifact(
         artifact_ref, artifact_text_reader, original_text, entities
     )
+=======
+    # If an ArtifactManager is provided, persist the artifact in the sandbox
+    if artifact_manager is not None:
+        source_type = doc.get("source_type", "txt")
+        file_ext = source_type if source_type in ("txt", "docx") else "txt"
+        stored_ref = artifact_manager.store_artifact(
+            document_id=document_id,
+            content=application.text,
+            file_extension=file_ext,
+            content_type="text/plain",
+        )
+        artifact_ref = stored_ref
+        artifact_text_reader = lambda ref: artifact_manager.read_artifact_bytes(
+            ref, document_id, True
+        ).decode("utf-8")
+
+    text_check = verify_redacted_text(original_text, application.text, entities)
+
+    if simulate_verification_failure:
+        artifact_check = {
+            "status": "FAIL",
+            "findings": [{"check": "simulated_verification_failure"}],
+        }
+    else:
+        artifact_check = verify_saved_artifact(
+            artifact_ref, artifact_text_reader, original_text, entities
+        )
+
+>>>>>>> origin/feature/member5-integration
     structure_score = calculate_structure_score(original_text, application.text)
     structure_status = "PASS" if structure_score >= minimum_structure_score else "FAIL"
     gate = evaluate_release(

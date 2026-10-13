@@ -154,6 +154,13 @@ def test_fail_closed_nonexistent_file():
     assert any(w.code == "ERR_FILE_NOT_FOUND" for w in doc.warnings)
 
 
+def test_fail_closed_none_or_invalid_path():
+    """None and invalid path types must return failed status without throwing exceptions."""
+    doc = extract_document(None)
+    assert doc.extraction_status == "failed"
+    assert any(w.code == "ERR_INVALID_FILE_PATH" for w in doc.warnings)
+
+
 # ---------------------------------------------------------------------------
 # 3. Text Rules, Normalization & Offset Integrity
 # ---------------------------------------------------------------------------

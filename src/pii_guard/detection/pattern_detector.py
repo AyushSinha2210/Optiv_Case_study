@@ -20,7 +20,11 @@ _SSN = re.compile(r"(?<![\d-])\d{3}-\d{2}-\d{4}(?![\d-])")
 _PAN = re.compile(r"(?<![A-Za-z0-9])[A-Z]{5}\d{4}[A-Z](?![A-Za-z0-9])")
 # 13 to 19 digits, optionally grouped by single spaces or hyphens.
 _CARD = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
+<<<<<<< HEAD
 _EMPLOYEE = re.compile(r"(?<![A-Za-z0-9])EMP-\d{5}(?!\d)")
+=======
+_EMPLOYEE = re.compile(r"(?<![A-Za-z0-9])(?:CAD-)?EMP-\d{5}(?!\d)")
+>>>>>>> origin/feature/member5-integration
 _IPV4 = re.compile(
     r"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}"
     r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?!\d)(?!\.\d)"

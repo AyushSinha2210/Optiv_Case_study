@@ -29,7 +29,11 @@ def resolve_overlaps(candidates: list[Candidate]) -> tuple[list[Candidate], int]
     ordered = sorted(
         candidates,
         key=lambda c: (
+<<<<<<< HEAD
             -PRECEDENCE[c.type],
+=======
+            -PRECEDENCE.get(c.type, 0),
+>>>>>>> origin/feature/member5-integration
             -(c.end - c.start),
             -c.confidence,
             c.start,

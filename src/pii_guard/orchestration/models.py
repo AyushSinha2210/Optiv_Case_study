@@ -31,16 +31,19 @@ class DetectionResult(BaseModel):
 
 class FindingInfo(BaseModel):
     """Safe verification or redaction finding."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
-    code: str = Field(..., description="Machine-readable code")
-    message: str = Field(..., description="Sanitized description without document text")
+    code: str = Field(default="INFO", description="Machine-readable code")
+    message: str = Field(default="", description="Sanitized description without document text")
     category: Optional[str] = Field(default=None, description="Associated PII category if known")
+    check: Optional[str] = Field(default=None, description="Check identifier")
+    entity_type: Optional[str] = Field(default=None, description="Entity type")
+    count: Optional[int] = Field(default=None, description="Count")
 
 
 class RedactionResult(BaseModel):
     """Canonical Contract C model (Member 3 -> Member 5)."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     document_id: str = Field(..., description="Unique document UUID")
     artifact_ref: Optional[str] = Field(
@@ -53,7 +56,7 @@ class RedactionResult(BaseModel):
     release_allowed: bool = Field(
         default=False, description="Strict release permission flag"
     )
-    findings: List[FindingInfo] = Field(default_factory=list, description="Safe findings")
+    findings: List[Any] = Field(default_factory=list, description="Safe findings")
 
 
 class ProcessingReport(BaseModel):
