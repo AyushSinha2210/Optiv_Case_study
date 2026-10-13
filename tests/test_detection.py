@@ -94,10 +94,7 @@ def test_pan_holder_type_check():
         ("PAN ABCPE1234F on file.", "GOVERNMENT_ID", "ABCPE1234F"),
         ("Card 4111 1111 1111 1111 declined.", "FINANCIAL_IDENTIFIER", "4111 1111 1111 1111"),
         ("Ref EMP-10482 assigned.", "EMPLOYEE_ID", "EMP-10482"),
-<<<<<<< HEAD
-=======
         ("Employee CAD-EMP-83563 on site.", "EMPLOYEE_ID", "CAD-EMP-83563"),
->>>>>>> origin/feature/member5-integration
         ("From 192.0.2.44 today.", "IP_ADDRESS", "192.0.2.44"),
     ],
 )
@@ -370,8 +367,6 @@ def test_pattern_only_ground_truth_scores_perfectly_on_current_corpus():
     )
     assert report["overall"]["fn"] == 0
     assert report["overall"]["fp"] == 0
-<<<<<<< HEAD
-=======
 
 
 def test_resolve_overlaps_unknown_candidate_type():
@@ -393,4 +388,3 @@ def test_ssn_valid_malformed_inputs():
     assert not ssn_valid("123-45")
     assert not ssn_valid("123-45-6789-extra")
     assert not ssn_valid("abc-de-fghi")
->>>>>>> origin/feature/member5-integration

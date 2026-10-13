@@ -33,7 +33,7 @@ class PDFAdapter(BaseAdapter):
                 source_type="pdf",
             )
 
-        ocr_engine = get_ocr_engine(config)
+        ocr_engine = None
         pages: List[AdapterPage] = []
         ocr_page_count = 0
         total_ocr_pages = 0
@@ -62,35 +62,60 @@ class PDFAdapter(BaseAdapter):
                     needs_ocr = True
 
             if needs_ocr and ocr_page_count < config.max_ocr_pages:
-                ocr_page_count += 1
-                total_ocr_pages += 1
-                # Render page at 200 DPI fast path
-                pix = page.get_pixmap(dpi=config.default_ocr_dpi)
-                mode = "RGBA" if pix.alpha else "RGB"
-                img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-                if mode == "RGBA":
-                    img = img.convert("RGB")
+                if ocr_engine is None:
+                    try:
+                        ocr_engine = get_ocr_engine(config)
+                    except Exception as e:
+                        warnings.append(
+                            WarningInfo(
+                                code="WARN_OCR_UNAVAILABLE",
+                                page=page_num,
+                                message="OCR engine could not be initialized; skipping OCR extraction",
+                            )
+                        )
+                        ocr_engine = False
 
-                ocr_res = ocr_engine.process_image(img, page_num=page_num, config=config)
+                if ocr_engine:
+                    ocr_page_count += 1
+                    total_ocr_pages += 1
+                    # Render page at 200 DPI fast path
+                    pix = page.get_pixmap(dpi=config.default_ocr_dpi)
+                    mode = "RGBA" if pix.alpha else "RGB"
+                    img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                    if mode == "RGBA":
+                        img = img.convert("RGB")
 
-                if native_char_count > 0 and ocr_res.text:
-                    # Mixed page: native text plus OCR
-                    final_text = f"{native_text}\n\n{ocr_res.text}".strip()
-                    method = "mixed"
-                else:
-                    final_text = ocr_res.text if ocr_res.text else native_text
-                    method = "ocr" if ocr_res.text else "native"
+                    ocr_res = ocr_engine.process_image(img, page_num=page_num, config=config)
 
-                pages.append(
-                    AdapterPage(
-                        page_num=page_num,
-                        label="page",
-                        text=final_text,
-                        method=method,
-                        ocr_confidence=ocr_res.confidence,
-                        warnings=ocr_res.warnings,
+                    if native_char_count > 0 and ocr_res.text:
+                        # Mixed page: native text plus OCR
+                        final_text = f"{native_text}\n\n{ocr_res.text}".strip()
+                        method = "mixed"
+                    else:
+                        final_text = ocr_res.text if ocr_res.text else native_text
+                        method = "ocr" if ocr_res.text else "native"
+
+                    pages.append(
+                        AdapterPage(
+                            page_num=page_num,
+                            label="page",
+                            text=final_text,
+                            method=method,
+                            ocr_confidence=ocr_res.confidence,
+                            warnings=ocr_res.warnings,
+                        )
                     )
-                )
+                else:
+                    pages.append(
+                        AdapterPage(
+                            page_num=page_num,
+                            label="page",
+                            text=native_text,
+                            method="native",
+                            ocr_confidence=None,
+                            warnings=[],
+                        )
+                    )
             else:
                 if needs_ocr and ocr_page_count >= config.max_ocr_pages:
                     warnings.append(
