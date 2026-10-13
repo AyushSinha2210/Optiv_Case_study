@@ -1,66 +1,152 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
+import './tprm.css';
+import { Header } from './components/tprm/Header';
+import { Sidebar } from './components/tprm/Sidebar';
+import type { NavigationTab } from './components/tprm/Sidebar';
+import { DashboardView } from './components/tprm/DashboardView';
+import { VendorDirectoryView } from './components/tprm/VendorDirectoryView';
+import { OnboardingWizardView } from './components/tprm/OnboardingWizardView';
+import { QuestionnaireRunnerView } from './components/tprm/QuestionnaireRunnerView';
+import { RiskFindingsView } from './components/tprm/RiskFindingsView';
+import { TasksApprovalsView } from './components/tprm/TasksApprovalsView';
+import { ReassessmentsView } from './components/tprm/ReassessmentsView';
+import { WorkflowsView } from './components/tprm/WorkflowsView';
+import { OrganizationAdminView } from './components/tprm/OrganizationAdminView';
+import { AuditLedgerView } from './components/tprm/AuditLedgerView';
+
+// Legacy components for Case Study PII Guard testing
 import { PipelineStages } from './components/PipelineStages';
 import { DocumentComparison } from './components/DocumentComparison';
 import { AIAssistant } from './components/AIAssistant';
 import { AuditLedger } from './components/AuditLedger';
-import type { ProcessResponse, ScenarioFixture } from './types';
-import {
-  CheckCircle,
-  XCircle,
-  Play,
-  Upload,
-  FileCode,
-  Layers,
-  Eye,
-  Bot,
-  ScrollText,
-  AlertTriangle,
-} from 'lucide-react';
+import type { ProcessResponse, ScenarioFixture, UserProfile, NotificationItem } from './types';
+import { Play } from 'lucide-react';
+
+const DEFAULT_USER: UserProfile = {
+  id: 'usr_vrm_01',
+  email: 'daniela.figueroa@cadence.com',
+  full_name: 'Daniela Figueroa',
+  is_active: true,
+  is_admin: true,
+  groups: ['Vendor Risk Management', 'Legal', 'Finance'],
+  group_roles: { 'Vendor Risk Management': 'Lead Reviewer / Administrator' },
+};
 
 export const App: React.FC = () => {
-  const [backendHealthy, setBackendHealthy] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile>(DEFAULT_USER);
+  const [currentTab, setCurrentTab] = useState<NavigationTab | 'pii_guard'>('dashboard');
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
+
+  // Metrics for badges
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(2);
+  const [pendingTasksCount, setPendingTasksCount] = useState<number>(4);
+  const [openRisksCount, setOpenRisksCount] = useState<number>(3);
+
+  // Legacy pipeline state
   const [scenarios, setScenarios] = useState<ScenarioFixture[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<string>('03_mixed_pii.txt');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [inputMode, setInputMode] = useState<'scenario' | 'upload'>('scenario');
   const [simulateFailure, setSimulateFailure] = useState<boolean>(false);
+  const [legacyTab, setLegacyTab] = useState<'stages' | 'comparison' | 'assistant' | 'audit'>('stages');
+  const [legacyProcessing, setLegacyProcessing] = useState<boolean>(false);
+  const [legacyResult, setLegacyResult] = useState<ProcessResponse | null>(null);
+  const [legacyError, setLegacyError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'stages' | 'comparison' | 'assistant' | 'audit'>('stages');
-  const [processing, setProcessing] = useState<boolean>(false);
-  const [result, setResult] = useState<ProcessResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Load notifications and metrics from backend
+  const refreshMetrics = async () => {
+    try {
+      const summaryRes = await fetch('/api/tprm/v1/reports/summary');
+      if (summaryRes.ok) {
+        const summary = await summaryRes.json();
+        setOpenRisksCount(summary.risk_findings?.high || 0);
+        setPendingTasksCount(summary.sla_and_tasks?.pending_tasks || 0);
+      }
 
-  // Poll backend health and fetch scenarios on mount
+      const tasksRes = await fetch('/api/tprm/v1/tasks');
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        const approvals = (tasksData.items || []).filter(
+          (t: any) => t.task_type.includes('Approval') && t.status !== 'Completed'
+        ).length;
+        setPendingApprovalsCount(approvals);
+      }
+    } catch (err) {
+      console.warn('Initial TPRM metrics fetch fallback', err);
+    }
+  };
+
   useEffect(() => {
-    fetch('/api/health')
-      .then((res) => {
-        if (res.ok) setBackendHealthy(true);
-      })
-      .catch(() => setBackendHealthy(false));
+    refreshMetrics();
 
+    // Fetch initial notifications
+    setNotifications([
+      {
+        id: 'notif_1',
+        subject: 'SLA Warning: Apex Cloud Assessment Review',
+        body: 'Apex Cloud Systems due diligence review is due in 24 hours under Table 13 SLA.',
+        is_read: false,
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+      },
+      {
+        id: 'notif_2',
+        subject: 'Table 14 High Risk Triggered: QRC_001',
+        body: 'Staffing Plus Inc flagged for unencrypted data in transit. Security mitigation required.',
+        is_read: false,
+        created_at: new Date(Date.now() - 7200000).toISOString(),
+      },
+    ]);
+
+    // Fetch scenarios for legacy tab
     fetch('/api/scenarios')
       .then((res) => res.json())
-      .then((data) => {
-        setScenarios(data.scenarios || []);
-      })
-      .catch((err) => console.error('Failed to load scenarios', err));
+      .then((data) => setScenarios(data.scenarios || []))
+      .catch(() => {});
   }, []);
 
-  const handleExecutePipeline = async () => {
-    setError(null);
-    setProcessing(true);
+  const handleSwitchUser = async (email: string) => {
+    try {
+      const res = await fetch(`/api/tprm/v1/auth/me?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const user = await res.json();
+        setCurrentUser(user);
+      } else {
+        // Fallback demo switch
+        setCurrentUser({
+          id: `usr_${email.split('@')[0]}`,
+          email,
+          full_name: email.split('@')[0].replace('.', ' ').toUpperCase(),
+          is_active: true,
+          is_admin: email.includes('daniela') || email.includes('bridgett'),
+          groups: [email.includes('sec') ? 'Security' : email.includes('leg') ? 'Legal' : 'Vendor Risk Management'],
+          group_roles: {},
+        });
+      }
+    } catch (err) {
+      console.error('Error switching user', err);
+    }
+  };
 
+  const handleMarkNotificationRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+    );
+  };
+
+  // Legacy pipeline execution
+  const handleExecuteLegacyPipeline = async () => {
+    setLegacyError(null);
+    setLegacyProcessing(true);
     try {
       const formData = new FormData();
       formData.append('simulate_verification_failure', simulateFailure.toString());
-
       if (inputMode === 'scenario') {
         formData.append('scenario_filename', selectedScenario);
       } else {
         if (!uploadedFile) {
-          setError('Please select a file to upload.');
-          setProcessing(false);
+          setLegacyError('Please select a file to upload.');
+          setLegacyProcessing(false);
           return;
         }
         formData.append('file', uploadedFile);
@@ -77,357 +163,300 @@ export const App: React.FC = () => {
       }
 
       const data: ProcessResponse = await res.json();
-      setResult(data);
+      setLegacyResult(data);
     } catch (err: any) {
-      setError(err.message || 'Error communicating with backend pipeline.');
+      setLegacyError(err.message || 'Error executing PII Guard pipeline');
     } finally {
-      setProcessing(false);
+      setLegacyProcessing(false);
     }
   };
 
-  const selectedScenarioMeta = scenarios.find((s) => s.filename === selectedScenario);
-
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Navbar backendHealthy={backendHealthy} />
+    <div className="enterprise-shell">
+      {/* Enterprise Header */}
+      <Header
+        currentUser={currentUser}
+        onSwitchUser={handleSwitchUser}
+        notifications={notifications}
+        onMarkNotificationRead={handleMarkNotificationRead}
+        onSearch={(q) => {
+          if (q) setCurrentTab('directory');
+        }}
+      />
 
-      <main style={{ flex: 1, padding: '0 24px 32px 24px', maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
-        {/* Top Control Card */}
-        <section className="glass-panel" style={{ padding: 24, marginBottom: 24 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
-            {/* Input Selection Column */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>SOURCE:</span>
-                <div style={{ display: 'flex', gap: 6, background: 'rgba(15, 23, 42, 0.6)', padding: 4, borderRadius: 8 }}>
-                  <button
-                    onClick={() => setInputMode('scenario')}
-                    className={`btn-secondary ${inputMode === 'scenario' ? 'active' : ''}`}
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '0.8rem',
-                      background: inputMode === 'scenario' ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
-                      borderColor: inputMode === 'scenario' ? '#06b6d4' : 'transparent',
-                      color: inputMode === 'scenario' ? '#fff' : '#94a3b8',
-                    }}
-                  >
-                    <FileCode size={14} />
-                    <span>Demo Scenarios</span>
-                  </button>
-                  <button
-                    onClick={() => setInputMode('upload')}
-                    className={`btn-secondary ${inputMode === 'upload' ? 'active' : ''}`}
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: '0.8rem',
-                      background: inputMode === 'upload' ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
-                      borderColor: inputMode === 'upload' ? '#06b6d4' : 'transparent',
-                      color: inputMode === 'upload' ? '#fff' : '#94a3b8',
-                    }}
-                  >
-                    <Upload size={14} />
-                    <span>Custom Upload</span>
-                  </button>
+      <div className="enterprise-body">
+        {/* Hierarchical Sidebar */}
+        <Sidebar
+          currentTab={currentTab as NavigationTab}
+          onSelectTab={(tab) => setCurrentTab(tab)}
+          pendingApprovalsCount={pendingApprovalsCount}
+          pendingTasksCount={pendingTasksCount}
+          openRisksCount={openRisksCount}
+        />
+
+        {/* Main Content Viewport */}
+        <main className="enterprise-main">
+          {/* Breadcrumbs */}
+          <div className="tprm-breadcrumbs">
+            <span className="text-slate-400">Cadence TPRM</span>
+            <span>/</span>
+            <span className="capitalize">{currentTab.replace('_', ' ')}</span>
+          </div>
+
+          {/* Tab Route Rendering */}
+          {currentTab === 'dashboard' && (
+            <DashboardView
+              onNavigate={(tab) => {
+                if (tab === 'vendors') setCurrentTab('directory');
+                else if (tab === 'onboarding') setCurrentTab('onboarding');
+                else if (tab === 'assessments') setCurrentTab('questionnaire');
+                else if (tab === 'tasks') setCurrentTab('tasks');
+                else if (tab === 'findings') setCurrentTab('findings');
+              }}
+            />
+          )}
+
+          {currentTab === 'directory' && (
+            <VendorDirectoryView
+              currentUser={currentUser}
+              onInitiateAssessment={(assessmentId) => {
+                setActiveAssessmentId(assessmentId);
+                setCurrentTab('questionnaire');
+              }}
+            />
+          )}
+
+          {currentTab === 'onboarding' && (
+            <OnboardingWizardView
+              currentUser={currentUser}
+              onComplete={() => {
+                refreshMetrics();
+                setCurrentTab('directory');
+              }}
+            />
+          )}
+
+          {(currentTab === 'questionnaire' || currentTab === 'assessments') && (
+            <QuestionnaireRunnerView
+              currentUser={currentUser}
+              initialAssessmentId={activeAssessmentId}
+              onNavigateToVendor={() => setCurrentTab('directory')}
+            />
+          )}
+
+          {currentTab === 'findings' && <RiskFindingsView />}
+
+          {(currentTab === 'tasks' || currentTab === 'approvals') && (
+            <TasksApprovalsView
+              currentUser={currentUser}
+              onNavigateToVendor={() => setCurrentTab('directory')}
+              onNavigateToQuestionnaire={(id) => {
+                setActiveAssessmentId(id);
+                setCurrentTab('questionnaire');
+              }}
+            />
+          )}
+
+          {currentTab === 'reassessments' && <ReassessmentsView />}
+
+          {currentTab === 'offboarding' && (
+            <VendorDirectoryView currentUser={currentUser} />
+          )}
+
+          {currentTab === 'workflows' && <WorkflowsView />}
+
+          {currentTab === 'organization' && (
+            <OrganizationAdminView
+              currentUser={currentUser}
+              onSelectUser={(u) => setCurrentUser(u)}
+            />
+          )}
+
+          {currentTab === 'reports' && (
+            <DashboardView
+              onNavigate={(tab) => {
+                if (tab === 'vendors') setCurrentTab('directory');
+                else setCurrentTab('findings');
+              }}
+            />
+          )}
+
+          {currentTab === 'audit' && <AuditLedgerView />}
+
+          {/* Legacy PII Guard Verification Panel */}
+          {currentTab === 'pii_guard' && (
+            <div className="space-y-6">
+              <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Zero-Leakage PII Guard Pipeline Verification
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Independent verification gate for unstructured onboarding attachments & documents.
+                  </p>
                 </div>
+                <button
+                  onClick={() => setCurrentTab('dashboard')}
+                  className="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300"
+                >
+                  Return to TPRM Console
+                </button>
               </div>
 
-              {inputMode === 'scenario' ? (
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: 8, fontWeight: 500 }}>
-                    Select Certified Synthetic Scenario:
-                  </label>
-                  <select
-                    value={selectedScenario}
-                    onChange={(e) => setSelectedScenario(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(15, 23, 42, 0.8)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: 8,
-                      padding: '10px 14px',
-                      color: '#f8fafc',
-                      fontSize: '0.875rem',
-                      outline: 'none',
-                    }}
-                  >
-                    {scenarios.map((sc) => (
-                      <option key={sc.filename} value={sc.filename}>
-                        {sc.filename} — {sc.description || sc.name}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedScenarioMeta && (
-                    <div style={{ marginTop: 10, fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                      Expected Categories: {selectedScenarioMeta.expected_categories.join(', ') || 'None (Clean)'} | Expected Entities: {selectedScenarioMeta.expected_count}
-                    </div>
+              {/* Legacy Execution Bar */}
+              <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-600">SOURCE:</span>
+                    <button
+                      onClick={() => setInputMode('scenario')}
+                      className={`px-3 py-1 text-xs font-semibold rounded ${
+                        inputMode === 'scenario'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      Demo Fixture
+                    </button>
+                    <button
+                      onClick={() => setInputMode('upload')}
+                      className={`px-3 py-1 text-xs font-semibold rounded ${
+                        inputMode === 'upload'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      Custom File
+                    </button>
+                  </div>
+
+                  {inputMode === 'scenario' ? (
+                    <select
+                      value={selectedScenario}
+                      onChange={(e) => setSelectedScenario(e.target.value)}
+                      className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-slate-50 min-w-[260px]"
+                    >
+                      {scenarios.map((s) => (
+                        <option key={s.filename} value={s.filename}>
+                          {s.filename} — {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="file"
+                      onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+                      className="text-xs"
+                    />
                   )}
-                </div>
-              ) : (
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: 8, fontWeight: 500 }}>
-                    Upload File (.pdf, .docx, .pptx, .txt):
+
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={simulateFailure}
+                      onChange={(e) => setSimulateFailure(e.target.checked)}
+                      className="rounded text-rose-600"
+                    />
+                    <span>Simulate Fail-Closed Block</span>
                   </label>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.pptx,.txt"
-                    onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
-                    style={{
-                      width: '100%',
-                      background: 'rgba(15, 23, 42, 0.8)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: 8,
-                      padding: '8px 12px',
-                      color: '#cbd5e1',
-                      fontSize: '0.85rem',
-                    }}
-                  />
-                  {uploadedFile && (
-                    <div style={{ marginTop: 8, fontSize: '0.75rem', color: '#38bdf8' }}>
-                      Selected: <strong>{uploadedFile.name}</strong> ({(uploadedFile.size / 1024).toFixed(1)} KB)
-                    </div>
+
+                  <button
+                    onClick={handleExecuteLegacyPipeline}
+                    disabled={legacyProcessing}
+                    className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-xs disabled:opacity-50"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    {legacyProcessing ? 'Processing Pipeline...' : 'Run PII Guard'}
+                  </button>
+                </div>
+
+                {legacyError && (
+                  <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-800 rounded">
+                    {legacyError}
+                  </div>
+                )}
+              </div>
+
+              {/* Legacy Tabs */}
+              {legacyResult && (
+                <div className="space-y-4">
+                  <div className="flex gap-2 border-b border-slate-200 pb-2">
+                    <button
+                      onClick={() => setLegacyTab('stages')}
+                      className={`px-3 py-1 text-xs font-bold rounded ${
+                        legacyTab === 'stages'
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Pipeline Stages
+                    </button>
+                    <button
+                      onClick={() => setLegacyTab('comparison')}
+                      className={`px-3 py-1 text-xs font-bold rounded ${
+                        legacyTab === 'comparison'
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Document Diff & Redactions
+                    </button>
+                    <button
+                      onClick={() => setLegacyTab('assistant')}
+                      className={`px-3 py-1 text-xs font-bold rounded ${
+                        legacyTab === 'assistant'
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Downstream Security Guard
+                    </button>
+                    <button
+                      onClick={() => setLegacyTab('audit')}
+                      className={`px-3 py-1 text-xs font-bold rounded ${
+                        legacyTab === 'audit'
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Audit Trail
+                    </button>
+                  </div>
+
+                  {legacyTab === 'stages' && (
+                    <PipelineStages
+                      currentStage={legacyResult.current_stage}
+                      workflowStatus={legacyResult.workflow_status}
+                      stageHistory={legacyResult.stage_history}
+                      totalDuration={legacyResult.duration_sec}
+                    />
+                  )}
+                  {legacyTab === 'comparison' && (
+                    <DocumentComparison
+                      extractedText={legacyResult.extracted_text}
+                      redactedText={legacyResult.redacted_text}
+                      entities={legacyResult.entities}
+                      releaseAllowed={legacyResult.release_allowed}
+                      verificationStatus={legacyResult.verification_status}
+                    />
+                  )}
+                  {legacyTab === 'assistant' && (
+                    <AIAssistant documentId={legacyResult.document_id} />
+                  )}
+                  {legacyTab === 'audit' && (
+                    <AuditLedger
+                      documentId={legacyResult.document_id}
+                      releaseAllowed={legacyResult.release_allowed}
+                      sourceType={legacyResult.source_type}
+                    />
                   )}
                 </div>
               )}
             </div>
-
-            {/* Security Controls & Action Column */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16 }}>
-              <div>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8', display: 'block', marginBottom: 12 }}>
-                  FAIL-CLOSED SECURITY TESTING:
-                </span>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    cursor: 'pointer',
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    padding: '10px 16px',
-                    borderRadius: 8,
-                    border: simulateFailure ? '1px solid #ef4444' : '1px solid var(--border-color)',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={simulateFailure}
-                    onChange={(e) => setSimulateFailure(e.target.checked)}
-                    style={{ width: 18, height: 18, accentColor: '#ef4444' }}
-                  />
-                  <div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: simulateFailure ? '#f87171' : '#f8fafc' }}>
-                      Simulate Verification Residual Leakage
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                      Simulates finding residual PII in verification re-scan to prove download blocking.
-                    </div>
-                  </div>
-                </label>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
-                <button
-                  onClick={handleExecutePipeline}
-                  disabled={processing}
-                  className="btn-primary"
-                  style={{ width: '100%', justifyContent: 'center', padding: '12px 24px', fontSize: '0.95rem' }}
-                >
-                  {processing ? (
-                    <>
-                      <div className="animate-pulse-glow" style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff' }} />
-                      <span>Executing Multi-Stage Pipeline...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play size={18} fill="#ffffff" />
-                      <span>Execute Protection Pipeline</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {error && (
-            <div style={{ marginTop: 16, background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#f87171', fontSize: '0.875rem' }}>
-              <AlertTriangle size={18} />
-              <span>{error}</span>
-            </div>
           )}
-        </section>
-
-        {/* Results Presentation Section */}
-        {result && (
-          <section style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Prominent Release Gate Status Banner */}
-            <div
-              className={`glass-panel ${result.workflow_status === 'success' && result.release_allowed ? 'glow-emerald' : 'glow-crimson'}`}
-              style={{
-                padding: '20px 28px',
-                background: result.workflow_status === 'success' && result.release_allowed
-                  ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%)'
-                  : 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(185, 28, 28, 0.15) 100%)',
-                border: `1px solid ${result.workflow_status === 'success' && result.release_allowed ? '#10b981' : '#ef4444'}`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 16,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{
-                  background: result.workflow_status === 'success' && result.release_allowed ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)',
-                  padding: 12,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  {result.workflow_status === 'success' && result.release_allowed ? (
-                    <CheckCircle size={32} color="#10b981" />
-                  ) : (
-                    <XCircle size={32} color="#ef4444" />
-                  )}
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '1.3rem', margin: 0, color: '#fff' }}>
-                    {result.workflow_status === 'success' && result.release_allowed
-                      ? 'RELEASE AUTHORIZED — VERIFICATION PASS'
-                      : 'RELEASE BLOCKED — DOWNLOAD STRICTLY WITHHELD'}
-                  </h2>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                    {result.workflow_status === 'success' && result.release_allowed
-                      ? 'All classified PII entities safely redacted. Autonomous re-scan found 0 residual leaks. Approved for downstream LLM ingress.'
-                      : (result.safe_error || 'Residual PII or verification exception detected during post-redaction re-scan. Fail-closed gate engaged.')}
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className={`badge ${result.verification_status === 'PASS' ? 'badge-phone' : 'badge-gov'}`} style={{ padding: '6px 14px', fontSize: '0.8rem' }}>
-                  GATE: {result.verification_status || 'UNKNOWN'}
-                </span>
-                <span className={`badge ${result.release_allowed ? 'badge-ip' : 'badge-generic'}`} style={{ padding: '6px 14px', fontSize: '0.8rem' }}>
-                  RELEASE: {result.release_allowed ? 'TRUE' : 'FALSE'}
-                </span>
-              </div>
-            </div>
-
-            {/* High-Level Telemetry Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-              <div className="glass-panel" style={{ padding: '14px 18px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>DOCUMENT ID</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>
-                  {result.document_id.slice(0, 12)}...
-                </div>
-              </div>
-
-              <div className="glass-panel" style={{ padding: '14px 18px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>FORMAT / PAGES</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc' }}>
-                  {(result.source_type || 'TXT').toUpperCase()} ({result.pages_count}p)
-                </div>
-              </div>
-
-              <div className="glass-panel" style={{ padding: '14px 18px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>PII DETECTED</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f87171' }}>
-                  {result.entities.length} spans
-                </div>
-              </div>
-
-              <div className="glass-panel" style={{ padding: '14px 18px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>MASKED APPLIED</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#34d399' }}>
-                  {result.redactions_applied} entities
-                </div>
-              </div>
-
-              <div className="glass-panel" style={{ padding: '14px 18px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>TOTAL DURATION</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
-                  {result.duration_sec.toFixed(4)}s
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <div className="nav-tabs" style={{ marginTop: 8 }}>
-              <button
-                onClick={() => setActiveTab('stages')}
-                className={`nav-tab-btn ${activeTab === 'stages' ? 'active' : ''}`}
-              >
-                <Layers size={16} />
-                <span>Live Execution Inspector (7 Stages)</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('comparison')}
-                className={`nav-tab-btn ${activeTab === 'comparison' ? 'active' : ''}`}
-              >
-                <Eye size={16} />
-                <span>Document Comparison & Entity Spans</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('assistant')}
-                className={`nav-tab-btn ${activeTab === 'assistant' ? 'active' : ''}`}
-              >
-                <Bot size={16} />
-                <span>AI Governance Assistant</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('audit')}
-                className={`nav-tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
-              >
-                <ScrollText size={16} />
-                <span>Sanitized Audit & Formal Reports</span>
-              </button>
-            </div>
-
-            {/* Tab Contents */}
-            {activeTab === 'stages' && (
-              <PipelineStages
-                currentStage={result.current_stage}
-                workflowStatus={result.workflow_status}
-                stageHistory={result.stage_history}
-                totalDuration={result.duration_sec}
-              />
-            )}
-
-            {activeTab === 'comparison' && (
-              <DocumentComparison
-                extractedText={result.extracted_text}
-                redactedText={result.redacted_text}
-                entities={result.entities}
-                releaseAllowed={result.release_allowed}
-                verificationStatus={result.verification_status}
-              />
-            )}
-
-            {activeTab === 'assistant' && (
-              <AIAssistant documentId={result.document_id} />
-            )}
-
-            {activeTab === 'audit' && (
-              <AuditLedger
-                documentId={result.document_id}
-                releaseAllowed={result.release_allowed}
-                sourceType={result.source_type}
-              />
-            )}
-          </section>
-        )}
-      </main>
-
-      <footer style={{ borderTop: '1px solid var(--border-color)', padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-        Cadence Financial Group — Enterprise AI Governance & Automated Redaction Release Gate Pipeline | Zero-Leakage Mandate
-      </footer>
+        </main>
+      </div>
     </div>
   );
 };
-
 export default App;
-

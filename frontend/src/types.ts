@@ -1,3 +1,232 @@
+// ==========================================
+// CADENCE TPRM & ENTERPRISE TYPES
+// Authority: Cadence_TPRM_Training.docx
+// ==========================================
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+  is_admin: boolean;
+  groups: string[];
+  group_roles: Record<string, string>;
+  is_respondent?: boolean;
+}
+
+export type VendorCategory =
+  | 'Service Provider and Vendor'
+  | 'Revenue Partner'
+  | 'Marketing Partner'
+  | 'Staffing Vendor'
+  | 'International Vendor';
+
+export type VendorTier = 'Tier 1' | 'Tier 2' | 'Tier 3';
+
+export type VendorType = 'Consulting' | 'Operations' | 'Regulatory' | 'Strategic' | 'Technology' | 'Unknown';
+
+export type Criticality = 'Critical' | 'High' | 'Medium' | 'Low';
+
+export type LifecycleStatus = 'New' | 'In Progress' | 'Live' | 'Review Reject' | 'Offboarding' | 'Closed';
+
+export interface VendorItem {
+  id: string;
+  name: string;
+  type: VendorType;
+  criticality: Criticality;
+  primary_vendor_contact: string;
+  business_owner: string;
+  vendor_tier: VendorTier;
+  vendor_category: VendorCategory;
+  website: string;
+  lifecycle_status: LifecycleStatus;
+  current_workflow_name: string;
+  current_stage: string;
+  last_assessment_completion_date: string | null;
+  next_reassessment_due_date: string | null;
+  created_at: string;
+}
+
+export interface ContractItem {
+  id: string;
+  contract_reference: string;
+  title: string;
+  source: string;
+  status: string;
+  effective_date: string | null;
+  expiration_date: string | null;
+}
+
+export interface VendorDetailResponse {
+  vendor: VendorItem;
+  contracts: ContractItem[];
+  assessments: any[];
+  findings: RiskFindingItem[];
+  workflow_instance?: any;
+}
+
+export interface RiskFindingItem {
+  id: string;
+  rule_code: string;
+  risk_name: string;
+  inherent_risk: 'High' | 'Medium' | 'Low';
+  control_id: string;
+  control_name: string;
+  responsible_group: string;
+  status: 'Open' | 'Acknowledged' | 'Remediating' | 'Accepted' | 'Closed';
+  mitigation_recommendation: string;
+  due_date: string;
+}
+
+export interface TaskItem {
+  id: string;
+  vendor_id: string;
+  vendor_name: string;
+  assessment_id?: string;
+  task_type: string;
+  title: string;
+  description?: string;
+  assignee_email?: string;
+  collaborator_group?: string;
+  due_date: string;
+  is_overdue: boolean;
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
+  created_at: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  subject: string;
+  body: string;
+  is_read: boolean;
+  link_url?: string;
+  created_at: string;
+}
+
+export interface QuestionItem {
+  id: string;
+  question_code: string;
+  prompt: string;
+  question_type: string;
+  options?: string[];
+  is_required: boolean;
+  is_conditional: boolean;
+  is_visible: boolean;
+  order_index: number;
+}
+
+export interface SectionItem {
+  id: string;
+  section_number: number;
+  title: string;
+  responsible_group: string;
+  questions: QuestionItem[];
+}
+
+export interface ConditionalRuleItem {
+  rule_code: string;
+  trigger_question_code: string;
+  trigger_response: string;
+  shown_question_codes: string[];
+  description?: string;
+}
+
+export interface TemplateDetail {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  version: number;
+  sections: SectionItem[];
+  conditional_rules: ConditionalRuleItem[];
+}
+
+export interface AssessmentReviewItem {
+  id: string;
+  user_group_name: string;
+  reviewer_email: string;
+  status: string;
+  notes: string;
+  reviewed_at: string;
+}
+
+export interface AssessmentDetail {
+  assessment: {
+    id: string;
+    vendor_id: string;
+    vendor_name: string;
+    vendor_tier: string;
+    vendor_category: string;
+    template_code: string;
+    status: string;
+    overall_score: number | null;
+    due_date: string | null;
+    submitted_at: string | null;
+    completed_at: string | null;
+    decision_reason: string | null;
+    decision_by: string | null;
+  };
+  responses: Record<string, string>;
+  template: TemplateDetail;
+  findings: RiskFindingItem[];
+  reviews: AssessmentReviewItem[];
+}
+
+export interface DashboardSummary {
+  total_vendors: number;
+  vendors_by_category: Record<string, number>;
+  vendors_by_tier: Record<string, number>;
+  vendors_by_status: Record<string, number>;
+  assessments: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+  risk_findings: {
+    total: number;
+    open: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  sla_and_tasks: {
+    pending_tasks: number;
+    overdue_tasks: number;
+    reassessments_due: number;
+  };
+}
+
+export interface AuditLogItem {
+  id: string;
+  actor_email: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: Record<string, any>;
+  timestamp: string;
+}
+
+export interface WorkflowItem {
+  id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  instances_count: number;
+}
+
+export interface WorkflowTransitionItem {
+  id: string;
+  actor_email: string;
+  from_stage: string;
+  to_stage: string;
+  trigger_name: string;
+  rule_name: string;
+  decision_reason: string;
+  timestamp: string;
+}
+
+// Legacy case study types
 export interface StageTransition {
   step: number;
   from_stage: string;
@@ -54,26 +283,25 @@ export interface ScenarioFixture {
   size_bytes: number;
 }
 
+export interface AssistantChatResponse {
+  query?: string;
+  explanation: string;
+  citations?: string[];
+  safe_error?: string | null;
+}
+
 export interface AuditEvent {
-  event_id: string;
-  document_id: string;
+  event_id?: string;
   timestamp: string;
   stage: string;
   event_type: string;
   status: string;
   duration_sec?: number;
   entity_count?: number;
-  category_counts?: Record<string, number>;
-  verification_status?: string;
-  release_decision?: boolean;
-  error_code?: string;
-}
-
-export interface AssistantChatResponse {
-  document_id: string;
-  query: string | null;
-  topic: string;
-  explanation: string;
-  citations: string[];
-  timestamp: string;
+  verification_status?: string | null;
+  step?: number;
+  action?: string;
+  actor?: string;
+  details?: Record<string, any>;
+  integrity_hash?: string;
 }

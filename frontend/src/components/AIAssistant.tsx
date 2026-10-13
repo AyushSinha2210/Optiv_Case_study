@@ -160,7 +160,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ documentId }) => {
               {msg.citations && msg.citations.length > 0 && (
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(51, 65, 85, 0.4)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Authoritative Code References:</span>
-                  {msg.citations.map((c, idx) => (
+                  {msg.citations.map((c: string, idx: number) => (
                     <span key={idx} className="badge badge-generic font-mono" style={{ fontSize: '0.7rem' }}>
                       {c}
                     </span>
