@@ -1,8 +1,24 @@
-"""Redaction, Verification & Release Gate Module.
+"""Member 3 redaction, verification, and release-gate API."""
 
-Produces Contract C RedactionResult from Contract A ExtractedDocument and Contract B DetectionResult.
-"""
+from .service import redact_and_validate as service_redact_and_validate
+from .redactor import (
+    RedactionError,
+    Redactor,
+    apply_redactions,
+    redact_text,
+    validate_spans,
+    redact_and_validate,
+)
+from .schemas import RedactionFinding, RedactionResult
 
-from .redactor import redact_and_validate, Redactor
-
-__all__ = ["redact_and_validate", "Redactor"]
+__all__ = [
+    "RedactionFinding",
+    "RedactionResult",
+    "redact_and_validate",
+    "service_redact_and_validate",
+    "Redactor",
+    "apply_redactions",
+    "redact_text",
+    "validate_spans",
+    "RedactionError",
+]
