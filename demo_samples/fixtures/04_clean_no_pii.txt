@@ -1,0 +1,10 @@
+Cadence Enterprise System Architecture Guidelines
+
+1. Service Boundary Separation
+All microservices must communicate exclusively via authenticated gRPC or mTLS REST endpoints.
+
+2. Zero-Trust Access Policy
+No public network routes may access persistent database backends directly.
+
+3. Automated Audit Logging
+All access control decisions must generate immutable telemetry records.

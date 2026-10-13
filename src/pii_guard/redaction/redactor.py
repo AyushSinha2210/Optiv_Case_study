@@ -1,7 +1,7 @@
 """Deterministic, offset-safe text redaction."""
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Optional
 
 from .policy import PolicyError, get_replacement
 
@@ -103,3 +103,55 @@ def redact_text(text: str, entities: Iterable[Mapping[str, Any]]) -> str:
     """Compatibility helper returning only the redacted string."""
 
     return apply_redactions(text, entities).text
+
+
+def redact_and_validate(
+    document: Any,
+    detection_result: Any,
+    *,
+    artifact_ref: str | None = None,
+    artifact_text_reader: Callable[[Any], str] | None = None,
+    artifact_manager: Any | None = None,
+    minimum_structure_score: float = 1.0,
+    simulate_verification_failure: bool = False,
+    **kwargs: Any,
+) -> Any:
+    """Public functional interface for redaction, verification, and release gating."""
+    from .service import redact_and_validate as _service_redact
+
+    return _service_redact(
+        document,
+        detection_result,
+        artifact_ref=artifact_ref,
+        artifact_text_reader=artifact_text_reader,
+        artifact_manager=artifact_manager,
+        minimum_structure_score=minimum_structure_score,
+        simulate_verification_failure=simulate_verification_failure,
+        **kwargs,
+    )
+
+
+class Redactor:
+    """Applies entity masking and executes post-redaction verification."""
+
+    def __init__(
+        self,
+        artifact_manager: Optional[Any] = None,
+        verifier_detector: Optional[Any] = None,
+    ) -> None:
+        self.artifact_manager = artifact_manager
+        self.verifier_detector = verifier_detector
+
+    def redact_and_validate(
+        self,
+        doc: Any,
+        detection: Any,
+        simulate_verification_failure: bool = False,
+    ) -> Any:
+        """Mask detected PII, verify resulting artifact, and generate Contract C result."""
+        return redact_and_validate(
+            doc,
+            detection,
+            artifact_manager=self.artifact_manager,
+            simulate_verification_failure=simulate_verification_failure,
+        )

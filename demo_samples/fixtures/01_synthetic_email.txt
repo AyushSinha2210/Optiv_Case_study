@@ -1,0 +1,6 @@
+Cadence Advisory Notification
+
+Please send review submissions to project coordinator morgan.synthetic859@testcorp.internal.
+For automated escalations, copy jordan.testperson242@example.com.
+
+Notice: This is a synthetic demonstration record.

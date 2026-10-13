@@ -6,7 +6,7 @@ returning an empty result, because "no entities" would look like "safe".
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .classifier import resolve_overlaps
 from .ner_detector import NerBackend, detect_ner
@@ -21,7 +21,12 @@ def _warn(code: str, message: str) -> DetectionWarning:
     return DetectionWarning(code=code, message=message)
 
 
-def detect_pii(document: "ExtractedDocument", ner_backend: Optional[NerBackend] = None) -> DetectionResult:
+def detect_pii(
+    document: "ExtractedDocument",
+    ner_backend: Optional[NerBackend] = None,
+    options: Optional[dict[str, Any]] = None,
+    **kwargs: Any,
+) -> DetectionResult:
     """Classify PII spans in `document.text`.
 
     Args:
@@ -29,6 +34,7 @@ def detect_pii(document: "ExtractedDocument", ner_backend: Optional[NerBackend] 
             (an ExtractedDocument from Member 1, or a compatible stand-in).
         ner_backend: optional `text -> [(label, start, end, score)]` callable.
             None disables PERSON detection and adds a NER_UNAVAILABLE warning.
+        options: optional dictionary of detection options for forward compatibility.
 
     Raises:
         DetectionInputError: if the document is malformed or extraction failed.
@@ -85,3 +91,19 @@ def detect_pii(document: "ExtractedDocument", ner_backend: Optional[NerBackend] 
         for c in resolved
     ]
     return DetectionResult(document_id=document_id, entities=entities, warnings=warnings)
+
+
+class PIIDetector:
+    """Deterministic pattern and contextual PII detector wrapper conforming to Contract B."""
+
+    def __init__(
+        self,
+        confidence_threshold: float = 0.5,
+        ner_backend: Optional[NerBackend] = None,
+    ) -> None:
+        self.confidence_threshold = confidence_threshold
+        self.ner_backend = ner_backend
+
+    def detect(self, doc: "ExtractedDocument", options: Optional[dict[str, Any]] = None) -> DetectionResult:
+        """Scan ExtractedDocument.text and return Contract B DetectionResult."""
+        return detect_pii(doc, ner_backend=self.ner_backend, options=options)
