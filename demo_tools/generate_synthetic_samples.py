@@ -53,10 +53,13 @@ class SyntheticSampleGenerator:
         return f"(555) 0{line:03d}-{last4:04d}"
 
     def _rand_ssn(self) -> str:
-        # 000-xx-xxxx is reserved by SSA and never issued
+        # Fictional synthetic SSN adhering to area rules (not 000, 666, or 900+)
+        area = self.rng.randint(100, 899)
+        while area == 666:
+            area = self.rng.randint(100, 899)
         mid = self.rng.randint(10, 99)
         end = self.rng.randint(1000, 9999)
-        return f"000-{mid:02d}-{end:04d}"
+        return f"{area:03d}-{mid:02d}-{end:04d}"
 
     def _rand_emp_id(self) -> str:
         num = self.rng.randint(10000, 99999)
