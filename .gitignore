@@ -25,6 +25,7 @@ output/
 dist/
 build/
 *.tmp
+*.zip
 .pytest_cache/
 node_modules/
 frontend/dist/
