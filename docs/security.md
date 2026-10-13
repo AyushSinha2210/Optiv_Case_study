@@ -138,7 +138,9 @@ Our test suite enforces these invariants through automated regression tests:
    - Tests path traversal payloads: `../secret.txt`, `..\secret.txt`, `/etc/passwd`, `C:\Windows\System32\cmd.exe`, `art-123\x00malicious`, `art-123/../../etc/passwd`.
    - Verifies all payloads raise `ArtifactSecurityError` before executing filesystem queries.
 
-<<<<<<< HEAD
+4. **`tests/test_redaction.py` (Member 3 Verification Tests):**
+   - Verifies right-to-left span replacements, out-of-range rejection, overlap rejection, unknown category rejection, and reopened clean artifact release gating.
+
 ---
 
 ## 6. Member 3 Security Notes & Release-Gate Handshake
@@ -185,7 +187,4 @@ addresses, or unusual identifiers remain residual risk and must be documented.
 ```bash
 pytest -q tests/test_redaction.py
 ```
-=======
-4. **`tests/test_redaction.py` (Member 3 Verification Tests):**
-   - Verifies right-to-left span replacements, out-of-range rejection, overlap rejection, unknown category rejection, and reopened clean artifact release gating.
->>>>>>> origin/feature/member5-integration
+
