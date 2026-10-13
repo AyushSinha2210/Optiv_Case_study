@@ -95,7 +95,15 @@ Communication between modules is governed by four strict data contracts:
 
 ```text
 Optive_Case_study/
-├── app.py                              # Member 5 - Interactive Streamlit Web Application
+├── server.py                           # Member 5 - FastAPI HTTP Adapter & Static Server
+├── frontend/                           # React + TypeScript + Vite Web Application
+│   ├── src/
+│   │   ├── components/                 # Inspector, Diff View, AI Copilot, Audit Ledger
+│   │   ├── App.tsx                     # Main Dashboard
+│   │   └── index.css                   # Glassmorphic Tailwind/CSS Design Tokens
+│   ├── package.json                    # Frontend dependencies
+│   └── vite.config.ts                  # Vite build & API proxy configuration
+├── app.py                              # Legacy Streamlit Web Application
 ├── requirements.txt                    # Core & testing dependencies
 ├── requirements-ingestion.txt          # Ingestion-specific dependencies
 ├── pytest.ini                          # Pytest configuration
@@ -279,11 +287,39 @@ Throughput measured up to **981.6 pages/sec** (Digital PDF) and **4,684 pages/se
 - **Sanitized Error Hierarchy:** `sanitize_error_message` strips filesystem paths, emails, phones, and SSNs from exceptions.
 - **Thread-Safe Audit Trail:** `AuditTrail` recording allowlist-filtered events with atomic document ID relinking.
 - **Contract D Structured Reporting:** Pydantic v2 `ProcessingReport` and executive summary generation with zero PII leakage.
-- **Interactive Streamlit UI:** `app.py` with multi-format validation, progress indicators, side-by-side preview, and gated downloads.
+- **FastAPI HTTP Adapter:** `server.py` exposing REST endpoints (`/api/process`, `/api/artifact`, `/api/report`, `/api/audit`, `/api/assistant/chat`) delegating directly to backend modules.
+- **React + TypeScript + Vite Web Application:** `frontend/` featuring:
+  - **Live Execution Inspector:** 7-stage lifecycle stepper showing timing and status for each step.
+  - **Document Comparison View:** Side-by-side view with inline highlighted PII spans and classified entity inventory.
+  - **AI Security Copilot:** Explains release decisions, redaction invariants, and Cadence Financial AI governance policy.
+  - **Sanitized Audit Ledger:** Contract D exports and gated artifact download controls.
+- **Legacy Streamlit UI:** `app.py` maintained for backward compatibility.
 
 ---
 
-## 9. Presentation Evidence Handoff for Anshika (Member 4)
+## 9. Launching the Web Application
+
+### Option 1: Unified Production Server (Recommended)
+FastAPI serves the compiled React application directly at `http://localhost:8000`:
+```powershell
+python server.py
+```
+
+### Option 2: Frontend Development Mode (Hot-Reloading)
+Run backend and Vite dev server simultaneously:
+```powershell
+# Terminal 1: Backend API
+python -m uvicorn server:app --host 127.0.0.1 --port 8000
+
+# Terminal 2: Vite Dev Server
+cd frontend
+npm run dev
+# Access UI at http://localhost:5173 (proxied to backend API)
+```
+
+---
+
+## 10. Presentation Evidence Handoff for Anshika (Member 4)
 
 Anshika can extract the following verified artifacts directly for the PowerPoint presentation deck:
 

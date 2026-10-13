@@ -22,14 +22,21 @@ pip install -r requirements.txt
 pip install -r requirements-ingestion.txt
 ```
 
-### 1.2 Launch the Interactive Demonstration UI
+### 1.2 Launch the Modern React/TypeScript Web Application
 
 ```powershell
-# Start Streamlit application
-streamlit run app.py
-```
+# Option A: Run Unified Production Application (FastAPI serves built React UI at http://localhost:8000)
+python server.py
 
-The Streamlit web interface will open automatically in your browser at `http://localhost:8501`.
+# Option B: Run with Vite Hot-Reloading Dev Server
+# Terminal 1: Start Backend API Adapter (port 8000)
+python -m uvicorn server:app --host 127.0.0.1 --port 8000
+
+# Terminal 2: Start Vite React Frontend (port 5173)
+cd frontend
+npm run dev
+# Open browser at http://localhost:5173 (proxies /api to port 8000)
+```
 
 ---
 
