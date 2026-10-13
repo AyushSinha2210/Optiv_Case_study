@@ -37,14 +37,40 @@ _PHONE = re.compile(
     r"(?!\w)"
 )
 
+# Deterministic patterns for specific private identifiers & dates (Zero LLM)
+_DOB = re.compile(
+    r"(?i)\b(?:date[ \t]+of[ \t]+birth|dob|birth[ \t]*date)[ \t]*[:#-][ \t]*"
+    r"(?:\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}"
+    r"|\d{1,2}[ \t]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[,\s]+\d{2,4})\b"
+)
+_CONSUMER_BILL = re.compile(
+    r"(?i)\b(?:consumer|account|bill|invoice|policy)[ \t]+(?:no\.?|num\.?|number|id)[ \t]*[:#-][ \t]*[A-Za-z0-9-]{4,24}\b"
+)
+_PATIENT_STUDENT_ID = re.compile(
+    r"(?i)\b(?:patient|mrn|student|roll|candidate)[ \t]+(?:no\.?|num\.?|number|id)[ \t]*[:#-][ \t]*[A-Za-z0-9-]{4,20}\b"
+)
+_PROFILE_URL = re.compile(
+    r"(?i)\b(?:https?://)?(?:www\.)?"
+    r"(?:github\.com/[A-Za-z0-9_%-]{2,39}|leetcode\.com/(?:u/)?[A-Za-z0-9_%-]{2,39}"
+    r"|linkedin\.com/in/[A-Za-z0-9_%-]{2,100})\b"
+)
+_POSTAL_CODE = re.compile(
+    r"(?i)\b(?:pin[ \t]*code|pincode|zip[ \t]*code|zipcode|postal[ \t]*code)[ \t]*[:#-][ \t]*\d{5,6}\b"
+)
+
 _Validator = Optional[Callable[[str], bool]]
 
 _RULES: tuple[tuple[str, re.Pattern[str], float, _Validator], ...] = (
     ("EMAIL", _EMAIL, 0.98, None),
     ("GOVERNMENT_ID", _SSN, 0.97, ssn_valid),
     ("GOVERNMENT_ID", _PAN, 0.95, pan_valid),
+    ("GOVERNMENT_ID", _DOB, 0.95, None),
     ("FINANCIAL_IDENTIFIER", _CARD, 0.99, lambda s: luhn_valid(digits_only(s))),
+    ("FINANCIAL_IDENTIFIER", _CONSUMER_BILL, 0.95, None),
     ("EMPLOYEE_ID", _EMPLOYEE, 0.95, None),
+    ("EMPLOYEE_ID", _PATIENT_STUDENT_ID, 0.95, None),
+    ("EMPLOYEE_ID", _PROFILE_URL, 0.95, None),
+    ("ADDRESS", _POSTAL_CODE, 0.90, None),
     ("IP_ADDRESS", _IPV4, 0.90, ipv4_valid),
     ("PHONE", _PHONE, 0.80, None),
 )
