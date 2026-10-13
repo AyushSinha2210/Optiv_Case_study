@@ -367,16 +367,65 @@ export interface AssistantChatResponse {
 
 export interface AuditEvent {
   event_id?: string;
+  document_id?: string;
   timestamp: string;
   stage: string;
   event_type: string;
   status: string;
+  error_code?: string;
   duration_sec?: number;
   entity_count?: number;
   verification_status?: string | null;
+  release_decision?: boolean;
   step?: number;
   action?: string;
   actor?: string;
   details?: Record<string, any>;
   integrity_hash?: string;
+  safe_message?: string;
 }
+
+export interface PIIFinding {
+  id: string;
+  document_id: string;
+  finding_index: number;
+  type: string;
+  start: number;
+  end: number;
+  confidence: number;
+  value: string;
+  masked_value: string;
+  detector_method: string;
+  rule_id: string;
+  rationale: string;
+  status: string;
+  verification_result: string;
+  page_or_slide: number;
+  risk_level: string;
+  created_at?: string;
+}
+
+export interface OverviewMetrics {
+  documents_received: number;
+  processing_runs_completed: number;
+  findings_detected: number;
+  findings_successfully_masked: number;
+  verification_failures: number;
+  documents_awaiting_review: number;
+  documents_blocked_from_release: number;
+  documents_approved_for_release: number;
+  category_breakdown: Record<string, number>;
+  recent_activity: any[];
+}
+
+export interface SystemSettings {
+  zero_leakage_mandate: boolean;
+  minimum_structure_score: number;
+  confidence_threshold: number;
+  ocr_confidence_threshold: number;
+  enforce_luhn_check: boolean;
+  ai_explanation_mode: string;
+  retention_policy_days: number;
+  supported_formats: string[];
+}
+
