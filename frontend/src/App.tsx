@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './tprm.css';
-import { Header } from './components/tprm/Header';
+import { Header, LoginView } from './components/tprm/Header';
 import { Sidebar } from './components/tprm/Sidebar';
 import type { NavigationTab } from './components/tprm/Sidebar';
 import { DashboardView } from './components/tprm/DashboardView';
@@ -25,23 +25,32 @@ import { Play } from 'lucide-react';
 const DEFAULT_USER: UserProfile = {
   id: 'usr_vrm_01',
   email: 'daniela.figueroa@cadence.com',
-  full_name: 'Daniela Figueroa',
+  full_name: 'Daniela Figueroa (Synthetic Demo)',
+  title: 'VRM Executive Lead',
   is_active: true,
   is_admin: true,
-  groups: ['Vendor Risk Management', 'Legal', 'Finance'],
-  group_roles: { 'Vendor Risk Management': 'Lead Reviewer / Administrator' },
+  groups: ['Vendor Risk Management Group', 'Legal Group', 'Finance Group', 'Data Quality Group'],
+  group_roles: {
+    'Vendor Risk Management Group': 'Admin',
+    'Legal Group': 'Edit',
+    'Finance Group': 'Edit',
+    'Data Quality Group': 'Edit',
+  },
 };
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile>(DEFAULT_USER);
+  const [showLoginPortal, setShowLoginPortal] = useState<boolean>(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [currentTab, setCurrentTab] = useState<NavigationTab | 'pii_guard'>('dashboard');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
 
-  // Metrics for badges
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(2);
-  const [pendingTasksCount, setPendingTasksCount] = useState<number>(4);
-  const [openRisksCount, setOpenRisksCount] = useState<number>(3);
+  // Live Metrics for Sidebar badges
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  const [pendingTasksCount, setPendingTasksCount] = useState<number>(0);
+  const [openRisksCount, setOpenRisksCount] = useState<number>(0);
 
   // Legacy pipeline state
   const [scenarios, setScenarios] = useState<ScenarioFixture[]>([]);
@@ -54,87 +63,78 @@ export const App: React.FC = () => {
   const [legacyResult, setLegacyResult] = useState<ProcessResponse | null>(null);
   const [legacyError, setLegacyError] = useState<string | null>(null);
 
-  // Load notifications and metrics from backend
-  const refreshMetrics = async () => {
+  const refreshMetrics = async (userEmail: string = currentUser.email) => {
     try {
-      const summaryRes = await fetch('/api/tprm/v1/reports/summary');
+      const headers = { 'X-User-Email': userEmail };
+      const [summaryRes, tasksRes, notifRes] = await Promise.all([
+        fetch('/api/tprm/v1/reports/summary', { headers }),
+        fetch('/api/tprm/v1/tasks', { headers }),
+        fetch('/api/tprm/v1/tasks/notifications', { headers }),
+      ]);
+
       if (summaryRes.ok) {
         const summary = await summaryRes.json();
-        setOpenRisksCount(summary.risk_findings?.high || 0);
+        setOpenRisksCount(summary.risk_findings?.open || 0);
         setPendingTasksCount(summary.sla_and_tasks?.pending_tasks || 0);
       }
 
-      const tasksRes = await fetch('/api/tprm/v1/tasks');
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
-        const approvals = (tasksData.items || []).filter(
-          (t: any) => t.task_type.includes('Approval') && t.status !== 'Completed'
+        const taskList = tasksData.items || tasksData.tasks || [];
+        const approvals = taskList.filter(
+          (t: any) => (t.task_type.includes('Approval') || t.title.includes('Assessment Submitted')) && t.status !== 'Completed'
         ).length;
         setPendingApprovalsCount(approvals);
       }
+
+      if (notifRes.ok) {
+        const notifData = await notifRes.json();
+        setNotifications(notifData.items || notifData.notifications || []);
+      }
     } catch (err) {
-      console.warn('Initial TPRM metrics fetch fallback', err);
+      console.warn('TPRM metrics fetch error', err);
     }
   };
 
   useEffect(() => {
-    refreshMetrics();
+    refreshMetrics(currentUser.email);
 
-    // Fetch initial notifications
-    setNotifications([
-      {
-        id: 'notif_1',
-        subject: 'SLA Warning: Apex Cloud Assessment Review',
-        body: 'Apex Cloud Systems due diligence review is due in 24 hours under Table 13 SLA.',
-        is_read: false,
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: 'notif_2',
-        subject: 'Table 14 High Risk Triggered: QRC_001',
-        body: 'Staffing Plus Inc flagged for unencrypted data in transit. Security mitigation required.',
-        is_read: false,
-        created_at: new Date(Date.now() - 7200000).toISOString(),
-      },
-    ]);
-
-    // Fetch scenarios for legacy tab
     fetch('/api/scenarios')
       .then((res) => res.json())
       .then((data) => setScenarios(data.scenarios || []))
       .catch(() => {});
-  }, []);
+  }, [currentUser.email]);
 
   const handleSwitchUser = async (email: string) => {
     try {
-      const res = await fetch(`/api/tprm/v1/auth/me?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`/api/tprm/v1/auth/me?email=${encodeURIComponent(email)}`, {
+        headers: { 'X-User-Email': email },
+      });
       if (res.ok) {
-        const user = await res.json();
-        setCurrentUser(user);
-      } else {
-        // Fallback demo switch
-        setCurrentUser({
-          id: `usr_${email.split('@')[0]}`,
-          email,
-          full_name: email.split('@')[0].replace('.', ' ').toUpperCase(),
-          is_active: true,
-          is_admin: email.includes('daniela') || email.includes('bridgett'),
-          groups: [email.includes('sec') ? 'Security' : email.includes('leg') ? 'Legal' : 'Vendor Risk Management'],
-          group_roles: {},
-        });
+        const data = await res.json();
+        const resolvedUser = data.user || data;
+        setCurrentUser(resolvedUser);
+        await refreshMetrics(resolvedUser.email);
       }
     } catch (err) {
       console.error('Error switching user', err);
     }
   };
 
-  const handleMarkNotificationRead = (id: string) => {
+  const handleMarkNotificationRead = async (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
     );
+    try {
+      await fetch(`/api/tprm/v1/tasks/notifications/${id}/read`, {
+        method: 'POST',
+        headers: { 'X-User-Email': currentUser.email },
+      });
+    } catch (e) {
+      // ignore
+    }
   };
 
-  // Legacy pipeline execution
   const handleExecuteLegacyPipeline = async () => {
     setLegacyError(null);
     setLegacyProcessing(true);
@@ -171,21 +171,39 @@ export const App: React.FC = () => {
     }
   };
 
+  if (showLoginPortal) {
+    return (
+      <LoginView
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setShowLoginPortal(false);
+          refreshMetrics(user.email);
+        }}
+      />
+    );
+  }
+
   return (
-    <div className="enterprise-shell">
-      {/* Enterprise Header */}
+    <div className={`enterprise-shell ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
       <Header
         currentUser={currentUser}
         onSwitchUser={handleSwitchUser}
         notifications={notifications}
         onMarkNotificationRead={handleMarkNotificationRead}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+        onLogout={() => setShowLoginPortal(true)}
         onSearch={(q) => {
-          if (q) setCurrentTab('directory');
+          setGlobalSearchQuery(q);
+          if (q && currentTab !== 'directory' && currentTab !== 'findings') {
+            setCurrentTab('directory');
+          }
         }}
       />
 
       <div className="enterprise-body">
-        {/* Hierarchical Sidebar */}
         <Sidebar
           currentTab={currentTab as NavigationTab}
           onSelectTab={(tab) => setCurrentTab(tab)}
@@ -194,20 +212,34 @@ export const App: React.FC = () => {
           openRisksCount={openRisksCount}
         />
 
-        {/* Main Content Viewport */}
         <main className="enterprise-main">
-          {/* Breadcrumbs */}
           <div className="tprm-breadcrumbs">
-            <span className="text-slate-400">Cadence TPRM</span>
-            <span>/</span>
-            <span className="capitalize">{currentTab.replace('_', ' ')}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Cadence Design Systems</span>
+              <span>/</span>
+              <span className="text-slate-400">OneTrust TPRM</span>
+              <span>/</span>
+              <span className="capitalize font-bold text-slate-900">{currentTab.replace('_', ' ')}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-500">Active Role:</span>
+              <span className="badge badge-info">
+                {currentUser.is_admin ? 'TPRM Administrator (Full Admin)' : `${currentUser.groups[0] || 'Reviewer'} (Edit)`}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowLoginPortal(true)}
+                className="btn-link text-xs"
+              >
+                Switch Group / IAM Login
+              </button>
+            </div>
           </div>
 
-          {/* Tab Route Rendering */}
           {currentTab === 'dashboard' && (
             <DashboardView
               onNavigate={(tab) => {
-                if (tab === 'vendors') setCurrentTab('directory');
+                if (tab === 'vendors' || tab === 'directory') setCurrentTab('directory');
                 else if (tab === 'onboarding') setCurrentTab('onboarding');
                 else if (tab === 'assessments') setCurrentTab('questionnaire');
                 else if (tab === 'tasks') setCurrentTab('tasks');
@@ -219,10 +251,12 @@ export const App: React.FC = () => {
           {currentTab === 'directory' && (
             <VendorDirectoryView
               currentUser={currentUser}
+              initialSearch={globalSearchQuery}
               onInitiateAssessment={(assessmentId) => {
                 setActiveAssessmentId(assessmentId);
                 setCurrentTab('questionnaire');
               }}
+              onRefreshData={() => refreshMetrics(currentUser.email)}
             />
           )}
 
@@ -230,7 +264,7 @@ export const App: React.FC = () => {
             <OnboardingWizardView
               currentUser={currentUser}
               onComplete={() => {
-                refreshMetrics();
+                refreshMetrics(currentUser.email);
                 setCurrentTab('directory');
               }}
             />
@@ -241,41 +275,66 @@ export const App: React.FC = () => {
               currentUser={currentUser}
               initialAssessmentId={activeAssessmentId}
               onNavigateToVendor={() => setCurrentTab('directory')}
+              onRefreshMetrics={() => refreshMetrics(currentUser.email)}
             />
           )}
 
-          {currentTab === 'findings' && <RiskFindingsView />}
+          {currentTab === 'findings' && (
+            <RiskFindingsView
+              currentUser={currentUser}
+              onRefreshMetrics={() => refreshMetrics(currentUser.email)}
+            />
+          )}
 
           {(currentTab === 'tasks' || currentTab === 'approvals') && (
             <TasksApprovalsView
               currentUser={currentUser}
+              initialMode={currentTab === 'approvals' ? 'approvals' : 'my'}
               onNavigateToVendor={() => setCurrentTab('directory')}
               onNavigateToQuestionnaire={(id) => {
                 setActiveAssessmentId(id);
                 setCurrentTab('questionnaire');
               }}
+              onRefreshMetrics={() => refreshMetrics(currentUser.email)}
             />
           )}
 
-          {currentTab === 'reassessments' && <ReassessmentsView />}
-
-          {currentTab === 'offboarding' && (
-            <VendorDirectoryView currentUser={currentUser} />
+          {currentTab === 'reassessments' && (
+            <ReassessmentsView
+              currentUser={currentUser}
+              onRefreshMetrics={() => refreshMetrics(currentUser.email)}
+            />
           )}
 
-          {currentTab === 'workflows' && <WorkflowsView />}
+          {currentTab === 'offboarding' && (
+            <VendorDirectoryView
+              currentUser={currentUser}
+              initialStatusFilter="Offboarding"
+              onInitiateAssessment={(assessmentId) => {
+                setActiveAssessmentId(assessmentId);
+                setCurrentTab('questionnaire');
+              }}
+              onRefreshData={() => refreshMetrics(currentUser.email)}
+            />
+          )}
+
+          {currentTab === 'workflows' && <WorkflowsView currentUser={currentUser} />}
 
           {currentTab === 'organization' && (
             <OrganizationAdminView
               currentUser={currentUser}
-              onSelectUser={(u) => setCurrentUser(u)}
+              onSelectUser={(u) => {
+                setCurrentUser(u);
+                refreshMetrics(u.email);
+              }}
             />
           )}
 
           {currentTab === 'reports' && (
             <DashboardView
+              showExportPanel={true}
               onNavigate={(tab) => {
-                if (tab === 'vendors') setCurrentTab('directory');
+                if (tab === 'vendors' || tab === 'directory') setCurrentTab('directory');
                 else setCurrentTab('findings');
               }}
             />
@@ -283,7 +342,6 @@ export const App: React.FC = () => {
 
           {currentTab === 'audit' && <AuditLedgerView />}
 
-          {/* Legacy PII Guard Verification Panel */}
           {currentTab === 'pii_guard' && (
             <div className="space-y-6">
               <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm flex items-center justify-between">
@@ -297,34 +355,25 @@ export const App: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setCurrentTab('dashboard')}
-                  className="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300"
+                  className="btn btn-secondary"
                 >
                   Return to TPRM Console
                 </button>
               </div>
 
-              {/* Legacy Execution Bar */}
               <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-600">SOURCE:</span>
                     <button
                       onClick={() => setInputMode('scenario')}
-                      className={`px-3 py-1 text-xs font-semibold rounded ${
-                        inputMode === 'scenario'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
+                      className={`btn btn-sm ${inputMode === 'scenario' ? 'btn-primary' : 'btn-secondary'}`}
                     >
                       Demo Fixture
                     </button>
                     <button
                       onClick={() => setInputMode('upload')}
-                      className={`px-3 py-1 text-xs font-semibold rounded ${
-                        inputMode === 'upload'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
+                      className={`btn btn-sm ${inputMode === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
                     >
                       Custom File
                     </button>
@@ -355,7 +404,6 @@ export const App: React.FC = () => {
                       type="checkbox"
                       checked={simulateFailure}
                       onChange={(e) => setSimulateFailure(e.target.checked)}
-                      className="rounded text-rose-600"
                     />
                     <span>Simulate Fail-Closed Block</span>
                   </label>
@@ -363,9 +411,9 @@ export const App: React.FC = () => {
                   <button
                     onClick={handleExecuteLegacyPipeline}
                     disabled={legacyProcessing}
-                    className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-xs disabled:opacity-50"
+                    className="ml-auto btn btn-primary"
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <Play size={14} />
                     {legacyProcessing ? 'Processing Pipeline...' : 'Run PII Guard'}
                   </button>
                 </div>
@@ -377,47 +425,30 @@ export const App: React.FC = () => {
                 )}
               </div>
 
-              {/* Legacy Tabs */}
               {legacyResult && (
                 <div className="space-y-4">
                   <div className="flex gap-2 border-b border-slate-200 pb-2">
                     <button
                       onClick={() => setLegacyTab('stages')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'stages'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`btn btn-sm ${legacyTab === 'stages' ? 'btn-primary' : 'btn-secondary'}`}
                     >
                       Pipeline Stages
                     </button>
                     <button
                       onClick={() => setLegacyTab('comparison')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'comparison'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`btn btn-sm ${legacyTab === 'comparison' ? 'btn-primary' : 'btn-secondary'}`}
                     >
                       Document Diff & Redactions
                     </button>
                     <button
                       onClick={() => setLegacyTab('assistant')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'assistant'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`btn btn-sm ${legacyTab === 'assistant' ? 'btn-primary' : 'btn-secondary'}`}
                     >
                       Downstream Security Guard
                     </button>
                     <button
                       onClick={() => setLegacyTab('audit')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'audit'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
+                      className={`btn btn-sm ${legacyTab === 'audit' ? 'btn-primary' : 'btn-secondary'}`}
                     >
                       Audit Trail
                     </button>

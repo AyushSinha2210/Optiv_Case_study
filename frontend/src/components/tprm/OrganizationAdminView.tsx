@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Shield,
   Building2,
   Check,
   Search,
+  Users,
+  Settings,
+  Link2,
+  Plus,
 } from 'lucide-react';
 import type { UserProfile } from '../../types';
 
@@ -16,157 +19,163 @@ export const OrganizationAdminView: React.FC<OrganizationAdminViewProps> = ({
   currentUser,
   onSelectUser,
 }) => {
+  const [subTab, setSubTab] = useState<'hierarchy' | 'attributes' | 'integrations'>('hierarchy');
   const [search, setSearch] = useState<string>('');
+  const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [hierarchy, setHierarchy] = useState<any | null>(null);
+  const [attributes, setAttributes] = useState<any[]>([]);
+  const [integrations, setIntegrations] = useState<any[]>([]);
+  const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Table 5 Roster of Users from Cadence_TPRM_Training.docx
-  const usersRoster: UserProfile[] = [
-    {
-      id: 'usr_vrm_01',
-      email: 'daniela.figueroa@cadence.com',
-      full_name: 'Daniela Figueroa',
-      is_active: true,
-      is_admin: true,
-      groups: ['Vendor Risk Management'],
-      group_roles: { 'Vendor Risk Management': 'Lead Reviewer / Administrator' },
-    },
-    {
-      id: 'usr_proc_01',
-      email: 'bridgett.gatewood@cadence.com',
-      full_name: 'Bridgett Gatewood',
-      is_active: true,
-      is_admin: false,
-      groups: ['Procurement'],
-      group_roles: { Procurement: 'Contract Manager' },
-    },
-    {
-      id: 'usr_sec_01',
-      email: 'sarah.chen@cadence.com',
-      full_name: 'Sarah Chen',
-      is_active: true,
-      is_admin: false,
-      groups: ['Security'],
-      group_roles: { Security: 'Principal Security Architect' },
-    },
-    {
-      id: 'usr_leg_01',
-      email: 'marcus.vance@cadence.com',
-      full_name: 'Marcus Vance',
-      is_active: true,
-      is_admin: false,
-      groups: ['Legal'],
-      group_roles: { Legal: 'Legal Counsel' },
-    },
-    {
-      id: 'usr_priv_01',
-      email: 'elena.rostova@cadence.com',
-      full_name: 'Elena Rostova',
-      is_active: true,
-      is_admin: false,
-      groups: ['Privacy'],
-      group_roles: { Privacy: 'Data Privacy Officer' },
-    },
-    {
-      id: 'usr_it_01',
-      email: 'david.kim@cadence.com',
-      full_name: 'David Kim',
-      is_active: true,
-      is_admin: false,
-      groups: ['IT'],
-      group_roles: { IT: 'IT Operations Reviewer' },
-    },
-    {
-      id: 'usr_comp_01',
-      email: 'rachel.green@cadence.com',
-      full_name: 'Rachel Green',
-      is_active: true,
-      is_admin: false,
-      groups: ['Compliance'],
-      group_roles: { Compliance: 'Regulatory Compliance Officer' },
-    },
-    {
-      id: 'usr_fin_01',
-      email: 'thomas.wright@cadence.com',
-      full_name: 'Thomas Wright',
-      is_active: true,
-      is_admin: false,
-      groups: ['Finance'],
-      group_roles: { Finance: 'Financial Risk Analyst' },
-    },
-    {
-      id: 'usr_dq_01',
-      email: 'jessica.taylor@cadence.com',
-      full_name: 'Jessica Taylor',
-      is_active: true,
-      is_admin: false,
-      groups: ['Data Quality'],
-      group_roles: { 'Data Quality': 'Data Quality Specialist' },
-    },
-  ];
+  // Create Group Form State
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupPerm, setNewGroupPerm] = useState('Edit');
 
-  // RBAC Matrix
-  const rbacMatrix = [
-    {
-      group: 'Vendor Risk Management (VRM)',
-      permissions: [
-        'Full TPRM Administrator',
-        'Create & Classify Vendors',
-        'Final Workflow Approvals & Rejections',
-        'Approve Assessment Reassessments',
-        'Manage Templates & Risk Rules',
-      ],
-      scope: 'Enterprise-wide across all vendor categories',
-    },
-    {
-      group: 'Security',
-      permissions: [
-        'Review Security Assessment Sections',
-        'Evaluate SOC 2 / ISO 27001 Controls',
-        'Flag Security Risk Findings',
-        'Approve/Reject Security Mitigations',
-      ],
-      scope: 'Security controls (QRC_001 - QRC_030)',
-    },
-    {
-      group: 'Legal',
-      permissions: [
-        'Review Contractual / Regulatory Sections',
-        'Verify Governing Law & Indemnification',
-        'Approve Legal Risk Findings',
-        'Ironclad Contract Sign-off',
-      ],
-      scope: 'Legal compliance and contract terms',
-    },
-    {
-      group: 'Privacy',
-      permissions: [
-        'Review GDPR / CCPA Data Processing Sections',
-        'Verify Cross-Border Data Transfers',
-        'Approve Privacy Mitigations',
-      ],
-      scope: 'PII, Privacy controls, DPA clauses',
-    },
-    {
-      group: 'Procurement',
-      permissions: [
-        'Onboard Vendor Intake',
-        'Manage Vendor Contracts & Renewals',
-        'Initiate Offboarding Deprovisioning',
-        'View Assessment Summary',
-      ],
-      scope: 'Commercial vendor lifecycle',
-    },
-    {
-      group: 'IT & Infrastructure',
-      permissions: [
-        'Review Architecture & Integration Sections',
-        'Verify Torii Deprovisioning Tasks',
-        'Network & SSO Integration Approval',
-      ],
-      scope: 'IT systems, SaaS tools, asset revocation',
-    },
-  ];
+  // Create Attribute Form State
+  const [newAttrKey, setNewAttrKey] = useState('');
+  const [newAttrDesc, setNewAttrDesc] = useState('');
+  const [newAttrType, setNewAttrType] = useState('Single select');
+  const [newAttrOpts, setNewAttrOpts] = useState('');
+  const [optionInputMap, setOptionInputMap] = useState<Record<string, string>>({});
 
-  const filteredUsers = usersRoster.filter(
+  const loadData = async () => {
+    const headers = { 'X-User-Email': currentUser.email };
+    try {
+      const [uRes, hRes, aRes, iRes] = await Promise.all([
+        fetch('/api/tprm/v1/auth/users', { headers }),
+        fetch('/api/tprm/v1/auth/hierarchy', { headers }),
+        fetch('/api/tprm/v1/vendors/attributes/inventory', { headers }),
+        fetch('/api/tprm/v1/integrations/status', { headers }),
+      ]);
+      if (uRes.ok) {
+        const uData = await uRes.json();
+        setUsersList(uData.users || uData.items || []);
+      }
+      if (hRes.ok) {
+        setHierarchy(await hRes.json());
+      }
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        setAttributes(aData.items || aData.attributes || []);
+      }
+      if (iRes.ok) {
+        const iData = await iRes.json();
+        setIntegrations(iData.integrations || []);
+      }
+    } catch (e) {
+      console.error('Failed to load organization admin data', e);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [currentUser.email]);
+
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBanner(null);
+    try {
+      const res = await fetch('/api/tprm/v1/auth/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': currentUser.email },
+        body: JSON.stringify({
+          name: newGroupName,
+          description: newGroupDesc,
+          default_permission: newGroupPerm,
+        }),
+      });
+      if (res.ok) {
+        setBanner({ type: 'success', text: `User Group '${newGroupName}' created (Section 6.1).` });
+        setNewGroupName('');
+        setNewGroupDesc('');
+        await loadData();
+      } else {
+        const err = await res.json();
+        setBanner({ type: 'error', text: err.detail || 'Failed to create group' });
+      }
+    } catch (err) {
+      setBanner({ type: 'error', text: 'Network error creating group' });
+    }
+  };
+
+  const handleToggleUserStatus = async (userId: string) => {
+    setBanner(null);
+    try {
+      const res = await fetch(`/api/tprm/v1/auth/users/${userId}/toggle-active`, {
+        method: 'POST',
+        headers: { 'X-User-Email': currentUser.email },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBanner({
+          type: 'success',
+          text: `User account status updated to ${data.is_active ? 'Active' : 'Deactivated'} (Annual Membership Review Sec 6.1).`,
+        });
+        await loadData();
+      } else {
+        const err = await res.json();
+        setBanner({ type: 'error', text: err.detail || 'Cannot toggle user status' });
+      }
+    } catch (e) {
+      setBanner({ type: 'error', text: 'Error updating user status' });
+    }
+  };
+
+  const handleCreateAttribute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBanner(null);
+    try {
+      const opts = newAttrOpts
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const res = await fetch('/api/tprm/v1/vendors/attributes/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': currentUser.email },
+        body: JSON.stringify({
+          key_name: newAttrKey,
+          description_key: newAttrDesc,
+          response_type: newAttrType,
+          options: opts,
+        }),
+      });
+      if (res.ok) {
+        setBanner({ type: 'success', text: `Custom attribute '${newAttrKey}' added to Attribute Manager (Section 6.2).` });
+        setNewAttrKey('');
+        setNewAttrDesc('');
+        setNewAttrOpts('');
+        await loadData();
+      } else {
+        const err = await res.json();
+        setBanner({ type: 'error', text: err.detail || 'Failed to create attribute' });
+      }
+    } catch (e) {
+      setBanner({ type: 'error', text: 'Error creating attribute' });
+    }
+  };
+
+  const handleUpdateAttribute = async (attrId: string, payload: any) => {
+    setBanner(null);
+    try {
+      const res = await fetch(`/api/tprm/v1/vendors/attributes/inventory/${attrId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': currentUser.email },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setBanner({ type: 'success', text: 'Attribute configuration updated and logged.' });
+        await loadData();
+      } else {
+        const err = await res.json();
+        setBanner({ type: 'error', text: err.detail || 'Update blocked' });
+      }
+    } catch (e) {
+      setBanner({ type: 'error', text: 'Error updating attribute' });
+    }
+  };
+
+  const filteredUsers = usersList.filter(
     (u) =>
       search === '' ||
       u.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -176,139 +185,414 @@ export const OrganizationAdminView: React.FC<OrganizationAdminViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-indigo-600" />
-            <h1 className="text-xl font-bold text-slate-900">Organization & Access Management</h1>
+            <Building2 size={20} className="text-indigo-600" />
+            <h1 className="text-xl font-bold text-slate-900">
+              Organization, User Groups, Attribute Manager & Integrations
+            </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Section 10 & 16: Enterprise Hierarchy, 10 Table 5 Review Groups, and Group-Based Role Permissions.
+            Section 4.2, 5.2, 6.1 & 6.2: Organization → 9 Departments → 9 User Groups → 15 Synthetic Demo Users → Roles & Permissions.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-            Active Persona: {currentUser.full_name} ({currentUser.groups[0] || 'Admin'})
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSubTab('hierarchy')}
+            className={`btn btn-sm ${subTab === 'hierarchy' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            <Users size={13} /> User Groups & RBAC (Sec 6.1)
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('attributes')}
+            className={`btn btn-sm ${subTab === 'attributes' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            <Settings size={13} /> Attribute Manager (Sec 6.2)
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('integrations')}
+            className={`btn btn-sm ${subTab === 'integrations' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            <Link2 size={13} /> Integration Adapters (Sec 1.3–1.5)
+          </button>
         </div>
       </div>
 
-      {/* Users Roster Section */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Cadence TPRM Staff Roster (Table 5)</h3>
-            <p className="text-xs text-slate-500">
-              Select any persona to immediately switch context and test group-specific review permissions.
-            </p>
-          </div>
-
-          <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search staff roster..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1 text-xs border border-slate-300 rounded-md bg-slate-50 focus:bg-white focus:outline-none"
-            />
-          </div>
+      {banner && (
+        <div
+          className={`p-3 rounded-md border text-xs font-medium ${
+            banner.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}
+        >
+          {banner.text}
         </div>
+      )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                <th className="py-2.5 px-4">Staff Member</th>
-                <th className="py-2.5 px-4">Primary Review Group</th>
-                <th className="py-2.5 px-4">Role Title</th>
-                <th className="py-2.5 px-4">System Access</th>
-                <th className="py-2.5 px-4 text-right">Switch Context</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 text-xs text-slate-700">
-              {filteredUsers.map((user) => {
-                const isCurrent = user.email === currentUser.email;
-                return (
-                  <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-2.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
-                      {user.full_name}
-                      <div className="text-[11px] text-slate-400 font-normal">{user.email}</div>
-                    </td>
-                    <td className="py-2.5 px-4 whitespace-nowrap">
-                      <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
-                        {user.groups[0]}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4 whitespace-nowrap text-slate-600">
-                      {user.group_roles[user.groups[0]] || 'Specialist'}
-                    </td>
-                    <td className="py-2.5 px-4 whitespace-nowrap">
-                      {user.is_admin ? (
-                        <span className="text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded text-[10px]">
-                          Administrator
-                        </span>
-                      ) : (
-                        <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[10px]">
-                          Reviewer
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-4 text-right whitespace-nowrap">
-                      {isCurrent ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
-                          <Check className="w-3.5 h-3.5" />
-                          Active Persona
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => onSelectUser(user)}
-                          className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 rounded transition-colors"
-                        >
-                          Switch to User
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Role & Permission Matrix */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
-        <div className="border-b border-slate-100 pb-3">
-          <h3 className="text-base font-bold text-slate-900">
-            Least-Privilege Group Responsibility Matrix
-          </h3>
-          <p className="text-xs text-slate-500">
-            Rigid authorization separating Reviewer domains from Administrative workflow transitions.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rbacMatrix.map((item, idx) => (
-            <div key={idx} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 space-y-3">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-indigo-600" />
-                <h4 className="text-xs font-bold text-slate-900">{item.group}</h4>
+      {/* SUB-TAB 1: User Groups, Roster & Hierarchy */}
+      {subTab === 'hierarchy' && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Authoritative Table 5 User Roster (15 Synthetic Demo Accounts)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Distinguishes <strong>Vendor Risk Management Group Admin</strong> (Daniela Figueroa, Bridgett Gatewood, KC Burney, Jyoti Karwal) from <strong>Edit</strong> reviewers (Tamika Oliver, Shimane Smith, Chris Schmitz, Chris Ott, Rob Tilney, etc.).
+                </p>
               </div>
-              <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
-                {item.permissions.map((p, pIdx) => (
-                  <li key={pIdx}>{p}</li>
-                ))}
-              </ul>
-              <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-500">
-                <strong>Scope:</strong> {item.scope}
+
+              <div className="relative min-w-[220px]">
+                <Search size={14} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search user or group..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-md bg-slate-50"
+                />
               </div>
             </div>
-          ))}
+
+            <div className="overflow-x-auto">
+              <table className="enterprise-table">
+                <thead>
+                  <tr>
+                    <th>Synthetic Staff Member</th>
+                    <th>Assigned User Groups (Table 5)</th>
+                    <th>Group Permission Level</th>
+                    <th>Account Status</th>
+                    <th className="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((user) => {
+                    const isCurrent = user.email === currentUser.email;
+                    return (
+                      <tr key={user.id}>
+                        <td className="font-semibold text-slate-900">
+                          {user.full_name}
+                          <div className="text-[11px] text-slate-500 font-mono">{user.email}</div>
+                        </td>
+                        <td>
+                          <div className="flex flex-wrap gap-1">
+                            {user.groups.map((g) => (
+                              <span key={g} className="badge badge-neutral">
+                                {g} ({user.group_roles?.[g] || 'Edit'})
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td>
+                          {user.is_admin ? (
+                            <span className="badge badge-info">Full Admin (TPRM_ADMIN)</span>
+                          ) : (
+                            <span className="badge badge-neutral">Edit / Reviewer</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`badge ${user.is_active ? 'badge-success' : 'badge-alert'}`}>
+                            {user.is_active ? 'Active' : 'Deactivated'}
+                          </span>
+                        </td>
+                        <td className="text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-2">
+                            {isCurrent ? (
+                              <span className="text-xs font-bold text-emerald-600 inline-flex items-center gap-1">
+                                <Check size={13} /> Active Persona
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => onSelectUser(user)}
+                                className="btn btn-sm btn-secondary"
+                              >
+                                Switch Persona
+                              </button>
+                            )}
+                            {currentUser.is_admin && !isCurrent && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleUserStatus(user.id)}
+                                className="btn btn-sm btn-secondary"
+                              >
+                                {user.is_active ? 'Deactivate' : 'Activate'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* User Groups & Create User Group (Section 6.1) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-3">
+              <h3 className="text-sm font-bold text-slate-900">
+                Configured User Groups & Departmental Review Scope (Section 4.2)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(hierarchy?.groups || []).map((g: any) => (
+                  <div key={g.id} className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">{g.name}</span>
+                      <span className={`badge ${g.default_permission === 'Admin' ? 'badge-info' : 'badge-neutral'}`}>
+                        {g.default_permission} ({g.members_count} members)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">{g.description}</p>
+                    <div className="text-[10px] text-indigo-700 font-semibold">
+                      Review Scope: {(g.review_sections || []).join(', ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {currentUser.is_admin && (
+              <form className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-3" onSubmit={handleCreateGroup}>
+                <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
+                  Create User Group (Section 6.1)
+                </h3>
+                <div>
+                  <label className="input-label">Group Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="e.g. TPRM_Executive_Audit_Group"
+                    className="form-input"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Description *</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={newGroupDesc}
+                    onChange={(e) => setNewGroupDesc(e.target.value)}
+                    placeholder="Enter group responsibility description..."
+                    className="input-textarea"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Default Permission Level</label>
+                  <select
+                    value={newGroupPerm}
+                    onChange={(e) => setNewGroupPerm(e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="Edit">Edit (Reviewer)</option>
+                    <option value="Admin">Admin (TPRM Administrator)</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-primary w-full">
+                  <Plus size={14} /> Create User Group
+                </button>
+              </form>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* SUB-TAB 2: Attribute Manager (Section 6.2 & 6.9) */}
+      {subTab === 'attributes' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-3">
+            <h3 className="text-base font-bold text-slate-900">
+              Inventory Manager — Vendor Attributes (Section 5.2 & 6.2)
+            </h3>
+            <p className="text-xs text-slate-500">
+              Workflow-driving attributes (<code>Vendor Tier</code>, <code>Vendor Category</code>, <code>Primary vendor contact</code>, <code>Business Owner</code>) are protected from accidental deactivation (Section 6.9).
+            </p>
+            <div className="overflow-x-auto">
+              <table className="enterprise-table">
+                <thead>
+                  <tr>
+                    <th>Key Name</th>
+                    <th>Response Type & Source</th>
+                    <th>Permitted Options</th>
+                    <th>Status</th>
+                    <th>Add Option / Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attributes.map((a) => (
+                    <tr key={a.id}>
+                      <td>
+                        <div className="font-bold text-slate-900">{a.key_name}</div>
+                        <div className="text-[11px] text-slate-500">{a.description_key}</div>
+                      </td>
+                      <td className="whitespace-nowrap">
+                        <span className="badge badge-neutral">{a.response_type}</span>{' '}
+                        <span className="badge badge-info">{a.source}</span>
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap gap-1">
+                          {(a.options || []).length === 0 ? (
+                            <span className="text-xs text-slate-400">Freeform ({a.response_type})</span>
+                          ) : (
+                            a.options.map((o: string) => (
+                              <span key={o} className="badge badge-neutral">{o}</span>
+                            ))
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${a.is_active ? 'badge-success' : 'badge-alert'}`}>
+                          {a.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap">
+                        {currentUser.is_admin && (
+                          <div className="flex items-center gap-1.5">
+                            {a.response_type === 'Single select' && (
+                              <>
+                                <input
+                                  type="text"
+                                  placeholder="New option (e.g. Tier 4)"
+                                  value={optionInputMap[a.id] || ''}
+                                  onChange={(e) =>
+                                    setOptionInputMap((prev) => ({ ...prev, [a.id]: e.target.value }))
+                                  }
+                                  className="form-input"
+                                  style={{ width: '130px', padding: '4px 8px', fontSize: '11px' }}
+                                />
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={() => {
+                                    const val = optionInputMap[a.id];
+                                    if (val) {
+                                      handleUpdateAttribute(a.id, { add_option: val });
+                                      setOptionInputMap((prev) => ({ ...prev, [a.id]: '' }));
+                                    }
+                                  }}
+                                >
+                                  Add
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => handleUpdateAttribute(a.id, { is_active: !a.is_active })}
+                            >
+                              {a.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {currentUser.is_admin && (
+            <form className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-3" onSubmit={handleCreateAttribute}>
+              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
+                Add Custom Vendor Attribute (Section 6.2)
+              </h3>
+              <div>
+                <label className="input-label">Name of Key *</label>
+                <input
+                  type="text"
+                  required
+                  value={newAttrKey}
+                  onChange={(e) => setNewAttrKey(e.target.value)}
+                  placeholder="e.g. Data Classification Scope"
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label className="input-label">Description Key *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={newAttrDesc}
+                  onChange={(e) => setNewAttrDesc(e.target.value)}
+                  placeholder="Explain the attribute's purpose..."
+                  className="input-textarea"
+                />
+              </div>
+              <div>
+                <label className="input-label">Response Type *</label>
+                <select
+                  value={newAttrType}
+                  onChange={(e) => setNewAttrType(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="Single select">Single select</option>
+                  <option value="Text">Text</option>
+                  <option value="Email">Email</option>
+                  <option value="URL">URL</option>
+                </select>
+              </div>
+              {newAttrType === 'Single select' && (
+                <div>
+                  <label className="input-label">Option Values (Comma-separated)</label>
+                  <input
+                    type="text"
+                    value={newAttrOpts}
+                    onChange={(e) => setNewAttrOpts(e.target.value)}
+                    placeholder="Restricted, Confidential, Public"
+                    className="form-input"
+                  />
+                </div>
+              )}
+              <button type="submit" className="btn btn-primary w-full">
+                Save Attribute
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+
+      {/* SUB-TAB 3: Integration Boundary & Adapter Status (Section 1.3–1.5, 21) */}
+      {subTab === 'integrations' && (
+        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
+          <h3 className="text-base font-bold text-slate-900">
+            External Integration Boundary & Adapter Status (Section 1.3, 1.4, 1.5 & 21)
+          </h3>
+          <p className="text-xs text-slate-500">
+            Clearly distinguishes active internal workflow capabilities and local development adapters from external third-party APIs requiring production credentials.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {integrations.map((item) => (
+              <div key={item.id} className="p-4 rounded-lg border border-slate-200 bg-slate-50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-slate-900">{item.name}</span>
+                  <span className="badge badge-info">{item.status}</span>
+                </div>
+                <p className="text-xs text-slate-600">{item.role}</p>
+                <div className="text-xs text-slate-700">
+                  <strong>Direction:</strong> {item.direction}
+                </div>
+                <div className="text-xs text-indigo-700 font-semibold">
+                  <strong>Adapter Mode:</strong> {item.mode}
+                </div>
+                <div className="text-[11px] font-mono text-slate-500">
+                  Endpoint: {item.endpoint}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
