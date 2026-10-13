@@ -10,7 +10,7 @@ import re
 from typing import Callable, Optional
 
 from .schemas import Candidate
-from .validators import digits_only, ipv4_valid, luhn_valid, pan_valid, ssn_valid
+from .validators import digits_only, ipv4_valid, luhn_valid, pan_valid, ssn_valid, phone_valid
 
 # Each lookaround prevents matching inside a longer token or digit run.
 _EMAIL = re.compile(
@@ -25,14 +25,18 @@ _IPV4 = re.compile(
     r"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}"
     r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?!\d)(?!\.\d)"
 )
-# Accepts +CC prefix, (AAA) BBB-CCCC, (AAA) BBBB-CCCC, AAA-BBB-CCCC, AA-BBB-CCCC, AAAAA-BBBBB (e.g. +91 98765 43210).
+# Accepts international +CC, direct-dial extensions (e.g. +1 (555) 0114), UK/EU/IN/SG/FR formats, multiline table cells, and US numbers.
 _PHONE = re.compile(
-    r"(?<![\w+])(?:\+\d{1,3}[ .-]?)?"
+    r"(?<![\w+])"
     r"(?:"
-    r"\(\d{3}\)[ .-]?\d{3,4}[ .-]?\d{4}"
-    r"|\d{3}[ .-]\d{3}[ .-]\d{4}"
-    r"|\d{5}[ .-]?\d{5}"
-    r"|\d{2}[ .-]\d{3}[ .-]\d{4}"
+    r"(?:\+\d{1,3}[\s.-]+)(?:\(\d{1,4}\)[\s.-]*)?(?:\d{1,4}[\s.-]*){2,4}\d{2,4}"
+    r"|(?:\+\d{1,3}[\s.-]*)?\(\d{3}\)[\s.-]*\d{3,4}(?:[\s.-]*\d{4})?"
+    r"|(?:\+\d{1,3}[\s.-]*)?\(\d{3}\)[\s.-]*\d{4}"
+    r"|\b\d{3}[\s.-]\d{3}[\s.-]\d{4}\b"
+    r"|\b\d{5}[\s.-]?\d{5}\b"
+    r"|\b\d{1,2}[\s.-]+\d{3,4}[\s.-]+\d{4}\b"
+    r"|\b\d{1,2}[\s.-]+\d{4}[\s.-]+\d{4}\b"
+    r"|\b\d{3}[\s.-]\d{4}\b"
     r")"
     r"(?!\w)"
 )
@@ -72,7 +76,7 @@ _RULES: tuple[tuple[str, re.Pattern[str], float, _Validator], ...] = (
     ("EMPLOYEE_ID", _PROFILE_URL, 0.95, None),
     ("ADDRESS", _POSTAL_CODE, 0.90, None),
     ("IP_ADDRESS", _IPV4, 0.90, ipv4_valid),
-    ("PHONE", _PHONE, 0.80, None),
+    ("PHONE", _PHONE, 0.80, phone_valid),
 )
 
 

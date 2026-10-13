@@ -109,17 +109,22 @@ class TesseractEngine(BaseOCREngine):
     ) -> OCRResult:
         warnings: List[WarningInfo] = []
 
-        # Handle page rotation / OSD if needed
-        try:
-            osd = self.pytesseract.image_to_osd(image, output_type=self.pytesseract.Output.DICT)
-            rotation = osd.get("rotate", 0)
-            if rotation in (90, 180, 270):
-                image = image.rotate(-rotation, expand=True)
-        except Exception:
-            pass  # OSD is best-effort
-
         # 1. Fast path: run OCR on raw rendered image
         text, conf = self._calculate_confidence_and_text(image)
+
+        # 1b. If text is virtually absent or empty, check if page orientation was rotated
+        if not text or (conf is not None and conf < 30.0):
+            try:
+                osd = self.pytesseract.image_to_osd(image, output_type=self.pytesseract.Output.DICT)
+                rotation = osd.get("rotate", 0)
+                if rotation in (90, 180, 270):
+                    rotated_image = image.rotate(-rotation, expand=True)
+                    rot_text, rot_conf = self._calculate_confidence_and_text(rotated_image)
+                    if rot_text:
+                        image = rotated_image
+                        text, conf = rot_text, rot_conf
+            except Exception:
+                pass  # OSD is best-effort
 
         # 2. Check if confidence is below threshold
         if conf is not None and conf < config.ocr_confidence_threshold:

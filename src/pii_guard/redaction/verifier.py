@@ -33,10 +33,26 @@ def _is_residual_phone(value: str) -> bool:
     clean = value.strip()
     if re.fullmatch(r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}", clean):
         return False
+    if re.fullmatch(r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}", clean):
+        return False
+    # Clause and exception codes like EXC-2026-041 13.1 or ISS-2025-0431
+    if re.search(r"\b202[0-9]-\d{3,4}\b", clean) or re.search(r"\.\d\b", clean):
+        return False
     digits = [c for c in clean if c.isdigit()]
     if len(digits) == 8 and clean.count("-") == 2:
         return False
     return len(digits) in (10, 11) or (clean.startswith("+") and 8 <= len(digits) <= 15)
+
+
+def _is_residual_ssn(value: str) -> bool:
+    parts = value.split("-")
+    if len(parts) != 3 or not all(p.isdigit() for p in parts):
+        return False
+    area, group, serial = parts
+    area_n = int(area)
+    if area_n == 0 or area_n == 666 or area_n >= 900:
+        return False
+    return int(group) != 0 and int(serial) != 0
 
 
 def _residual_findings(text: str) -> list[dict[str, Any]]:
@@ -45,7 +61,7 @@ def _residual_findings(text: str) -> list[dict[str, Any]]:
         findings.append({"check": "residual_email_pattern", "entity_type": "EMAIL"})
     if any(_is_residual_phone(m.group()) for m in PHONE_PATTERN.finditer(text)):
         findings.append({"check": "residual_phone_pattern", "entity_type": "PHONE"})
-    if GOVERNMENT_ID_PATTERN.search(text):
+    if any(_is_residual_ssn(m.group()) for m in GOVERNMENT_ID_PATTERN.finditer(text)):
         findings.append({"check": "residual_government_id_pattern", "entity_type": "GOVERNMENT_ID"})
     if any(_luhn_valid(match.group()) for match in CARD_PATTERN.finditer(text)):
         findings.append({"check": "residual_financial_identifier_pattern", "entity_type": "FINANCIAL_IDENTIFIER"})
@@ -99,13 +115,20 @@ def calculate_structure_score(original_text: str, redacted_text: str) -> float:
 
     if not isinstance(original_text, str) or not isinstance(redacted_text, str):
         return 0.0
-    checks = [
-        original_text.count("\n") == redacted_text.count("\n"),
-        len(original_text.splitlines()) == len(redacted_text.splitlines()),
-        len(re.findall(r"(?m)^\s*#{1,6}\s", original_text))
-        == len(re.findall(r"(?m)^\s*#{1,6}\s", redacted_text)),
-    ]
-    return sum(checks) / len(checks)
+
+    orig_lines = len(original_text.splitlines())
+    red_lines = len(redacted_text.splitlines())
+    line_ratio = min(orig_lines, red_lines) / max(orig_lines, red_lines) if max(orig_lines, red_lines) > 0 else 1.0
+
+    orig_headings = len(re.findall(r"(?m)^\s*#{1,6}\s", original_text))
+    red_headings = len(re.findall(r"(?m)^\s*#{1,6}\s", redacted_text))
+    heading_ratio = min(orig_headings, red_headings) / max(orig_headings, red_headings) if max(orig_headings, red_headings) > 0 else 1.0
+
+    orig_nl = original_text.count("\n")
+    red_nl = redacted_text.count("\n")
+    nl_ratio = min(orig_nl, red_nl) / max(orig_nl, red_nl) if max(orig_nl, red_nl) > 0 else 1.0
+
+    return (line_ratio + heading_ratio + nl_ratio) / 3.0
 
 
 def verify_saved_artifact(

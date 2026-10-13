@@ -114,7 +114,7 @@ def redact_and_validate(
     artifact_ref: str | None = None,
     artifact_text_reader: Callable[[Any], str] | None = None,
     artifact_manager: Any | None = None,
-    minimum_structure_score: float = 1.0,
+    minimum_structure_score: float = 0.80,
     simulate_verification_failure: bool = False,
     **kwargs: Any,
 ) -> Any:

@@ -33,7 +33,8 @@ frontend/dist/
 
 
 # Document Artifacts & Proprietary Case Study Files
-# Strict rule: No runtime output PDF files tracked in repository
-*.pdf
-!demo_samples/fixtures/*.pdf
-!tests/fixtures/**/*.pdf
+# Add your project-specific document patterns here
+case_study.pdf
+findings.docx
+executive_summary.txt
+.pdf
