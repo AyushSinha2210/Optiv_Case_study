@@ -198,8 +198,8 @@ Throughput measured up to **981.6 pages/sec** (Digital PDF) and **4,684 pages/se
 ### 1. Setup Virtual Environment
 ```bash
 # Clone the repository
-git clone https://github.com/AyushSinha2210/Optive_Case_study.git
-cd Optive_Case_study
+git clone https://github.com/AyushSinha2210/Optiv_Case_study.git
+cd Optiv_Case_study
 
 # Create and activate virtual environment
 python -m venv .venv
