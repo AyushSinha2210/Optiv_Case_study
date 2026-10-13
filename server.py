@@ -38,11 +38,28 @@ from src.pii_guard.reporting.audit import get_global_audit_trail
 from src.pii_guard.reporting.report_generator import generate_report, generate_human_readable_summary
 from src.pii_guard.reporting.export import export_to_json, export_to_csv
 
+# TPRM Platform imports
+from src.cadence_tprm.api import api_router as tprm_api_router
+from src.cadence_tprm.database import engine as tprm_engine, Base as TPRMBase, SessionLocal as TPRMSessionLocal
+from src.cadence_tprm.seed.seed_data import seed_database as seed_tprm_database
+
 app = FastAPI(
-    title="PII Guard API",
-    description="Enterprise Document Privacy & AI Governance Pipeline — Cadence Financial Group",
+    title="Cadence Enterprise Platform - TPRM & PII Guard",
+    description="Unified Enterprise Platform for Cadence Financial Group: Third-Party Risk Management & Document Governance",
     version="1.0.0",
 )
+
+# Auto-initialize and seed TPRM database
+try:
+    TPRMBase.metadata.create_all(bind=tprm_engine)
+    _db = TPRMSessionLocal()
+    seed_tprm_database(_db)
+    _db.close()
+except Exception as e:
+    print(f"TPRM Database initialization warning: {e}")
+
+# Mount TPRM REST API
+app.include_router(tprm_api_router)
 
 # Enable CORS for Vite development server
 app.add_middleware(

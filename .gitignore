@@ -28,6 +28,9 @@ build/
 .pytest_cache/
 node_modules/
 frontend/dist/
+*.db
+*.sqlite*
+
 
 # Document Artifacts & Proprietary Case Study Files
 # Strict rule: No runtime output PDF files tracked in repository
