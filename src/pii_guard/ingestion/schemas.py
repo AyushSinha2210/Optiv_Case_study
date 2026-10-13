@@ -60,7 +60,7 @@ class ExtractedDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     document_id: str = Field(..., description="Unique document UUID identifier")
-    source_type: Literal["pdf", "scanned_pdf", "docx", "pptx", "txt"] = Field(
+    source_type: Literal["pdf", "scanned_pdf", "docx", "pptx", "txt", "json", "image"] = Field(
         ..., description="Verified document format classification"
     )
     text: str = Field(

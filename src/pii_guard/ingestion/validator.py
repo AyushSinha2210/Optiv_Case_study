@@ -273,6 +273,42 @@ def validate_file(file_path: str, config: Optional[IngestionConfig] = None) -> V
             )
         return ValidationResult(is_valid=True, detected_format="txt")
 
+    # Validate JSON
+    elif ext == "json":
+        import json
+        try:
+            with open(path, "r", encoding="utf-8") as jf:
+                json.load(jf)
+        except Exception:
+            return ValidationResult(
+                is_valid=False,
+                detected_format="json",
+                error_code="ERR_CORRUPT_FILE",
+                error_message="JSON file contains invalid syntax or is corrupted",
+            )
+        return ValidationResult(is_valid=True, detected_format="json")
+
+    # Validate Image (PNG, JPG, JPEG)
+    elif ext in ("png", "jpg", "jpeg"):
+        if sig_type != "image":
+            return ValidationResult(
+                is_valid=False,
+                error_code="ERR_SIGNATURE_MISMATCH",
+                error_message="File extension is image but header signature does not match PNG/JPEG",
+            )
+        try:
+            from PIL import Image
+            with Image.open(path) as img:
+                img.verify()
+        except Exception:
+            return ValidationResult(
+                is_valid=False,
+                detected_format="image",
+                error_code="ERR_CORRUPT_FILE",
+                error_message="Image file header corrupted or unreadable",
+            )
+        return ValidationResult(is_valid=True, detected_format="image")
+
     # Unsupported format
     else:
         return ValidationResult(

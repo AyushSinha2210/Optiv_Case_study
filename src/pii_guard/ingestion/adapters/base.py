@@ -23,7 +23,7 @@ class AdapterResult(BaseModel):
     """Aggregated output from a format adapter."""
     pages: List[AdapterPage]
     warnings: List[WarningInfo] = Field(default_factory=list)
-    source_type: Literal["pdf", "scanned_pdf", "docx", "pptx", "txt"]
+    source_type: Literal["pdf", "scanned_pdf", "docx", "pptx", "txt", "json", "image"]
 
 
 class BaseAdapter(ABC):

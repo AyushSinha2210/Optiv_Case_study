@@ -5,6 +5,8 @@ from .pdf import PDFAdapter
 from .docx import DOCXAdapter
 from .pptx import PPTXAdapter
 from .txt import TXTAdapter
+from .json_adapter import JSONAdapter
+from .image import ImageAdapter
 
 __all__ = [
     "BaseAdapter",
@@ -14,4 +16,6 @@ __all__ = [
     "DOCXAdapter",
     "PPTXAdapter",
     "TXTAdapter",
+    "JSONAdapter",
+    "ImageAdapter",
 ]
