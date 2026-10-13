@@ -74,10 +74,10 @@ Matching is exact span plus type. A zero denominator is reported as `n/a`. Types
 
 ### Current numbers and what they mean
 
-- 22 synthetic documents, 18 scored entities (pattern types), 3 PERSON entities not scored.
-- Pattern types score 1.000 precision and recall on this corpus.
+- 28 synthetic documents, 28 scored entities (23 pattern-based, 5 PERSON).
+- Pattern types score 1.000 precision and recall. PERSON: precision 0.833, recall 1.000, F1 0.909 (one false positive). Overall: precision 0.966, recall 1.000, F1 0.982.
 - **This is not a generalisation result.** The regexes and the corpus were written in the same pass, so the corpus is not a hold-out. A result is only meaningful once a separately written hold-out set exists.
-- PERSON is unmeasured until a NER backend is installed and run.
+
 
 ## Known limitations
 
@@ -87,6 +87,7 @@ Matching is exact span plus type. A zero denominator is reported as `n/a`. Types
 - ADDRESS is not detected.
 - Context-free rules cannot tell a real SSN from a test value that passes the structural check.
 - NER is optional and not installed in the current environment, so PERSON recall is unknown.
+- The spaCy name model labelled a fake ID-like token (ABCDE1234F) as a person in one test document. Validated IDs should take precedence over NER output.
 
 ## Tests
 

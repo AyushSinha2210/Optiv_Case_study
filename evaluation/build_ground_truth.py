@@ -43,6 +43,12 @@ CORPUS: list[tuple[str, str]] = [
     ("det-020", "Prepared by [[PERSON|Julian Thorne]] for the audit committee."),
     ("det-021", "Escalate to [[PERSON|Priya Raman]] at [[EMAIL|priya.raman@example.test]] if the batch fails."),
     ("det-022", "Build 12345 and ticket 67890 were merged at 10:30."),
+    ("det-023", "Customer [[PERSON|Maya Lindqvist]] asked us to update the email to [[EMAIL|maya.l@example.test]]."),
+    ("det-024", "Call the branch on [[PHONE|555-014-2280]] between 9 and 5."),
+    ("det-025", "Refund card [[FINANCIAL_IDENTIFIER|4000 0000 0000 0002]] was issued to [[PERSON|Ravi Kumar]]."),
+    ("det-026", "Server [[IP_ADDRESS|192.0.2.201]] restarted; ticket 1.2.3 remains open."),
+    ("det-027", "Employee [[EMPLOYEE_ID|EMP-30051]] requested access; no contact details included."),
+    ("det-028", "Invoice dated 2026-10-12 totals 4500 rupees; no personal data."),
 ]
 
 

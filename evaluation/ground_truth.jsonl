@@ -20,3 +20,9 @@
 {"doc_id": "det-020", "text": "Prepared by Julian Thorne for the audit committee.", "entities": [{"type": "PERSON", "start": 12, "end": 25, "value": "Julian Thorne"}]}
 {"doc_id": "det-021", "text": "Escalate to Priya Raman at priya.raman@example.test if the batch fails.", "entities": [{"type": "PERSON", "start": 12, "end": 23, "value": "Priya Raman"}, {"type": "EMAIL", "start": 27, "end": 51, "value": "priya.raman@example.test"}]}
 {"doc_id": "det-022", "text": "Build 12345 and ticket 67890 were merged at 10:30.", "entities": []}
+{"doc_id": "det-023", "text": "Customer Maya Lindqvist asked us to update the email to maya.l@example.test.", "entities": [{"type": "PERSON", "start": 9, "end": 23, "value": "Maya Lindqvist"}, {"type": "EMAIL", "start": 56, "end": 75, "value": "maya.l@example.test"}]}
+{"doc_id": "det-024", "text": "Call the branch on 555-014-2280 between 9 and 5.", "entities": [{"type": "PHONE", "start": 19, "end": 31, "value": "555-014-2280"}]}
+{"doc_id": "det-025", "text": "Refund card 4000 0000 0000 0002 was issued to Ravi Kumar.", "entities": [{"type": "FINANCIAL_IDENTIFIER", "start": 12, "end": 31, "value": "4000 0000 0000 0002"}, {"type": "PERSON", "start": 46, "end": 56, "value": "Ravi Kumar"}]}
+{"doc_id": "det-026", "text": "Server 192.0.2.201 restarted; ticket 1.2.3 remains open.", "entities": [{"type": "IP_ADDRESS", "start": 7, "end": 18, "value": "192.0.2.201"}]}
+{"doc_id": "det-027", "text": "Employee EMP-30051 requested access; no contact details included.", "entities": [{"type": "EMPLOYEE_ID", "start": 9, "end": 18, "value": "EMP-30051"}]}
+{"doc_id": "det-028", "text": "Invoice dated 2026-10-12 totals 4500 rupees; no personal data.", "entities": []}
