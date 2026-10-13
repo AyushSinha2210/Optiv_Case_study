@@ -464,7 +464,7 @@ python -m src.pii_guard.ingestion tests/fixtures/ingestion/sample.docx --json
 ## 9. Presentation Evidence Handoff for Anshika (Member 4)
 
 Anshika can extract the following verified artifacts directly for the PowerPoint presentation deck:
->>>>>>> origin/feature/member5-integration
+
 
 - **Supported Formats Table:** PDF (Digital), PDF (Scanned OCR), Word (DOCX), PowerPoint (PPTX), Plain Text (TXT).
 - **Quality Metric Benchmark:** Structure retention score = **100.0%** (exceeding the $\ge 80\%$ requirement) with sample size = 5 diverse artifacts.
