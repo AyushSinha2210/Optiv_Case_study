@@ -14,10 +14,10 @@ Based on the updated architectural specification (`PII_Case_Study_Named_Team_Det
 | **Member 1: Ayush Sinha** *(You)* | **Ingestion, Extraction & OCR** | `src/pii_guard/ingestion/`<br>`tests/test_ingestion.py`<br>`docs/ingestion.md` | Deterministic synthetic fixtures, extraction completeness & $\ge 80\%$ structure retention scoring. | Detection internals, redaction policies, UI. |
 | **Member 2: Avishi Sharma** | **PII Detection & Classification** | `src/pii_guard/detection/`<br>`tests/test_detection.py`<br>`evaluation/` | Synthetic ground-truth annotations, precision, recall, F1 metrics, false-negative analysis. | Ingestion parsers, redaction policies, UI. |
 | **Member 3: Yash** | **Redaction, Verification & Release Gate** | `src/pii_guard/redaction/`<br>`tests/test_redaction.py`<br>`docs/security.md` | Leakage tests, saved-artifact verification, non-sensitive structure preservation. | Detection internals, UI orchestration. |
-| **Member 4: Nancy** | **PowerPoint Presentation & Demo Fixtures** | `demo_tools/`<br>`demo_samples/`<br>`tests/test_demo_fixtures.py`<br>`Presentation (.pptx)` | 75% slide deck narrative & rehearsal; 25% lightweight synthetic demo-fixture generator & manifest. | Core detection/redaction algorithms, orchestration. |
+| **Member 4: Anshika** | **PowerPoint Presentation & Demo Fixtures** | `demo_tools/`<br>`demo_samples/`<br>`tests/test_demo_fixtures.py`<br>`Presentation (.pptx)` | 75% slide deck narrative & rehearsal; 25% lightweight synthetic demo-fixture generator & manifest. | Core detection/redaction algorithms, orchestration. |
 | **Member 5: Tirth** | **Orchestration, UI, Audit & Integration** | `src/pii_guard/orchestration/`<br>`src/pii_guard/reporting/`<br>`app.py`<br>`tests/test_integration.py` | Cross-module state machine, release gate enforcement, metadata-only audit reporting. | Internal extraction or detection algorithms. |
 
-> **Roster Note:** If Anshika is also participating, the team should confirm whether she contributes alongside Member 5 or takes a specialized sub-track.
+>
 
 ---
 
@@ -119,11 +119,11 @@ To allow all five team members to develop and test concurrently without blocking
 ├── benchmarks/
 │   └── bench_ingestion.py              # Ingestion throughput and latency benchmark
 ├── docs/
-│   └── ingestion.md                    # Ingestion module handbook & Nancy handoff
+│   └── ingestion.md                    # Ingestion module handbook & Anshika handoff
 ├── tests/
 │   ├── test_ingestion.py               # 19 automated tests for Member 1
 │   └── fixtures/ingestion/             # Deterministic synthetic test fixtures
-└── demo_tools/                         # Member 4 (Nancy) - Lightweight demo generator
+└── demo_tools/                         # Member 4 (Anshika) - Lightweight demo generator
 ```
 
 ---
@@ -213,9 +213,9 @@ All 13 Member 1 acceptance criteria specified in the revised team guide have bee
 
 ---
 
-## 9. Presentation Evidence Handoff for Nancy (Member 4)
+## 9. Presentation Evidence Handoff for Anshika (Member 4)
 
-Nancy can extract the following verified artifacts directly for the PowerPoint presentation deck:
+Anshika can extract the following verified artifacts directly for the PowerPoint presentation deck:
 
 - **Supported Formats Table:** PDF (Digital), PDF (Scanned OCR), Word (DOCX), PowerPoint (PPTX), Plain Text (TXT).
 - **Quality Metric Benchmark:** Structure retention score = **100.0%** (exceeding the $\ge 80\%$ requirement) with sample size = 5 diverse artifacts.
