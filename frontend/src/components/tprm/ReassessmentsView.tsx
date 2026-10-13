@@ -8,9 +8,17 @@ import {
   RotateCw,
   Search,
 } from 'lucide-react';
-import type { VendorItem } from '../../types';
+import type { VendorItem, UserProfile } from '../../types';
 
-export const ReassessmentsView: React.FC = () => {
+interface ReassessmentsViewProps {
+  currentUser?: UserProfile;
+  onRefreshMetrics?: () => void;
+}
+
+export const ReassessmentsView: React.FC<ReassessmentsViewProps> = ({
+  currentUser,
+  onRefreshMetrics,
+}) => {
   const [vendors, setVendors] = useState<VendorItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [runningJob, setRunningJob] = useState<boolean>(false);
@@ -23,7 +31,9 @@ export const ReassessmentsView: React.FC = () => {
   const fetchVendors = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/tprm/v1/vendors');
+      const res = await fetch('/api/tprm/v1/vendors', {
+        headers: currentUser ? { 'X-User-Email': currentUser.email } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         setVendors(data.items || []);
@@ -46,15 +56,17 @@ export const ReassessmentsView: React.FC = () => {
     try {
       const res = await fetch('/api/tprm/v1/tasks/automation/run-reassessments', {
         method: 'POST',
+        headers: currentUser ? { 'X-User-Email': currentUser.email } : {},
       });
       if (res.ok) {
         const result = await res.json();
         setJobResult(result);
         setMessage({
           type: 'success',
-          text: `Daily automated reassessment scan completed: ${result.reassessments_created} reassessment tasks and ${result.notifications_sent} notifications dispatched.`,
+          text: `Daily Reassessment Automation Executed (AR.T1.1 >= 275d, AR.T2.1 >= 640d, AR.T3.1 >= 640d): ${result.reassessments_created ?? 0} reassessment(s) launched (Copy Previous Assessment = Yes) and ${result.notifications_sent ?? 0} notifications ('Vendor Upcoming Re-Assessment') dispatched.`,
         });
         await fetchVendors();
+        onRefreshMetrics?.();
       } else {
         setMessage({ type: 'error', text: 'Failed to run reassessment engine' });
       }
@@ -69,10 +81,12 @@ export const ReassessmentsView: React.FC = () => {
     setLaunchingId(vendor.id);
     setMessage(null);
     try {
-      // Trigger reassessment workflow or create assessment
       const res = await fetch('/api/tprm/v1/assessments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'X-User-Email': currentUser.email } : {}),
+        },
         body: JSON.stringify({
           vendor_id: vendor.id,
           template_code: vendor.vendor_tier === 'Tier 3' ? 'T3_v1' : 'T1-2_v1',
@@ -81,9 +95,10 @@ export const ReassessmentsView: React.FC = () => {
       if (res.ok) {
         setMessage({
           type: 'success',
-          text: `Reassessment successfully initiated for ${vendor.name}. Respondent notified.`,
+          text: `Reassessment questionnaire (${vendor.vendor_tier === 'Tier 3' ? 'T3_v1' : 'T1-2_v1'}) launched for ${vendor.name}. Primary Vendor Contact notified.`,
         });
         await fetchVendors();
+        onRefreshMetrics?.();
       } else {
         const err = await res.json();
         setMessage({ type: 'error', text: err.detail || 'Failed to initiate reassessment' });
@@ -106,108 +121,100 @@ export const ReassessmentsView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-indigo-600" />
-            <h1 className="text-xl font-bold text-slate-900">Periodic Reassessment Schedule</h1>
+            <Calendar size={20} className="text-indigo-600" />
+            <h1 className="text-xl font-bold text-slate-900">Reassessment Automation & Renewal Schedule</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Section 21 Cadence Policy: Tier 1 every 12 months (275d trigger), Tier 2 & Tier 3 every 24 months (640d trigger).
+            Appendix A Automation Rules (<code>AR.T1.1</code>, <code>AR.T2.1</code>, <code>AR.T3.1</code>) & Appendix D Timelines (<code>SLA.6</code>: 275 days, <code>SLA.7</code>: 640 days).
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {jobResult && (
-            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-200">
-              Tasks: {jobResult.reassessments_created} | Notifs: {jobResult.notifications_sent}
+            <span className="badge badge-info">
+              Launched: {jobResult.reassessments_created} | Reminders: {jobResult.sla_reminders_sent}
             </span>
           )}
           <button
+            type="button"
             onClick={fetchVendors}
-            className="p-1.5 text-slate-500 hover:text-slate-800 border border-slate-200 rounded hover:bg-slate-50"
-            title="Refresh Vendors"
+            className="btn btn-sm btn-secondary"
           >
-            <RotateCw className="w-4 h-4" />
+            <RotateCw size={13} /> Refresh
           </button>
           <button
+            type="button"
             onClick={handleRunDailyAutomation}
             disabled={runningJob}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors shadow-sm disabled:opacity-50"
+            className="btn btn-primary"
           >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            {runningJob ? 'Executing Reassessment Engine...' : 'Run Daily Automation Job'}
+            <Play size={14} />
+            <span>{runningJob ? 'Running Daily Automation...' : 'Run Daily Reassessment Job'}</span>
           </button>
         </div>
       </div>
 
       {message && (
         <div
-          className={`p-4 rounded-md border text-sm flex items-center gap-3 ${
+          className={`p-4 rounded-md border text-xs font-medium flex items-center gap-3 ${
             message.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
               : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
           ) : (
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <AlertTriangle size={16} className="text-rose-600 shrink-0" />
           )}
           <span>{message.text}</span>
         </div>
       )}
 
-      {/* Cadence Policy Reference Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
+        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800">Tier 1 Vendors</span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
-              12 Months Cycle
-            </span>
+            <span className="text-xs font-bold text-slate-800">AR.T1.1 — Tier 1 Reassessment</span>
+            <span className="badge badge-alert">Annual (275 Days / SLA.6)</span>
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Reassessment tasks initiated at <strong>275 days (9 months)</strong> post-approval. 90-day grace period for due diligence.
+            Daily check: when Last Assessment Completion Date &ge; <strong>275 days</strong> (90 days before 1 year), sends <code>Due Diligence Questionnaire T1-2 v1</code> with <code>Copy Previous Assessment = Yes</code> and emails Business Owners (<code>Vendor Upcoming Re-Assessment</code>).
           </p>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
+        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800">Tier 2 Vendors</span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-              24 Months Cycle
-            </span>
+            <span className="text-xs font-bold text-slate-800">AR.T2.1 — Tier 2 Reassessment</span>
+            <span className="badge badge-warning">24 Months (640 Days / SLA.7)</span>
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Reassessment tasks initiated at <strong>640 days (21 months)</strong> post-approval. 90-day grace period before renewal.
+            Daily check: when Last Assessment Completion Date &ge; <strong>640 days</strong> (90 days before 2 years), sends <code>Due Diligence Questionnaire T1-2 v1</code> with <code>Copy Previous Assessment = Yes</code> and notifies Business Owners.
           </p>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
+        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800">Tier 3 Vendors</span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-              24 Months Cycle
-            </span>
+            <span className="text-xs font-bold text-slate-800">AR.T3.1 — Tier 3 Reassessment</span>
+            <span className="badge badge-success">24 Months (640 Days / SLA.7)</span>
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Reassessment tasks initiated at <strong>640 days</strong> post-approval. Utilizes Due Diligence Questionnaire T3 v1.
+            Daily check: when Last Assessment Completion Date &ge; <strong>640 days</strong> (revised from earlier 3-year process to 2 years), sends <code>Due Diligence Questionnaire T3 v1</code> with <code>Copy Previous Assessment = Yes</code>.
           </p>
         </div>
       </div>
 
-      {/* Filter Bar */}
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="relative flex-1 max-w-sm">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search vendor by name or category..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-md bg-slate-50 focus:bg-white focus:outline-none"
+            className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-md bg-slate-50"
           />
         </div>
 
@@ -216,115 +223,93 @@ export const ReassessmentsView: React.FC = () => {
           <select
             value={tierFilter}
             onChange={(e) => setTierFilter(e.target.value)}
-            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50 focus:outline-none"
+            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50"
           >
             <option value="All">All Tiers</option>
-            <option value="Tier 1">Tier 1 (Annual)</option>
-            <option value="Tier 2">Tier 2 (Biennial)</option>
-            <option value="Tier 3">Tier 3 (Biennial)</option>
+            <option value="Tier 1">Tier 1 (Annual / 275d)</option>
+            <option value="Tier 2">Tier 2 (24 Months / 640d)</option>
+            <option value="Tier 3">Tier 3 (24 Months / 640d)</option>
           </select>
         </div>
       </div>
 
-      {/* Schedule Table */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-x-auto">
         {loading ? (
           <div className="p-12 text-center text-slate-500">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-3"></div>
             <p className="text-sm">Calculating reassessment deadlines...</p>
           </div>
-        ) : filteredVendors.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-            <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-medium text-slate-700">No Reassessment Records</p>
-          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                  <th className="py-3 px-4">Vendor Name</th>
-                  <th className="py-3 px-4">Tier & Category</th>
-                  <th className="py-3 px-4">Last Assessment</th>
-                  <th className="py-3 px-4">Next Due Date</th>
-                  <th className="py-3 px-4">Lifecycle Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs text-slate-700">
-                {filteredVendors.map((vendor) => {
-                  const dueDate = vendor.next_reassessment_due_date
-                    ? new Date(vendor.next_reassessment_due_date)
-                    : null;
-                  const isDue = dueDate && dueDate <= new Date();
+          <table className="enterprise-table">
+            <thead>
+              <tr>
+                <th>Vendor Name</th>
+                <th>Tier & Category</th>
+                <th>Last Assessment Completion</th>
+                <th>Next Reassessment Due</th>
+                <th>Renewal Status</th>
+                <th>Lifecycle Status</th>
+                <th className="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredVendors.map((vendor) => {
+                const dueDate = vendor.next_reassessment_due_date
+                  ? new Date(vendor.next_reassessment_due_date)
+                  : null;
+                const isDueSoon = dueDate && (dueDate.getTime() - Date.now()) / (1000 * 3600 * 24) <= 90;
 
-                  return (
-                    <tr key={vendor.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">
-                        {vendor.name}
-                        <div className="text-[11px] text-slate-400 font-normal">{vendor.primary_vendor_contact}</div>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span
-                          className={`font-semibold px-2 py-0.5 rounded text-[10px] mr-2 ${
-                            vendor.vendor_tier === 'Tier 1'
-                              ? 'bg-rose-100 text-rose-800'
-                              : vendor.vendor_tier === 'Tier 2'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
-                          {vendor.vendor_tier}
-                        </span>
-                        <span className="text-slate-600">{vendor.vendor_category}</span>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {vendor.last_assessment_completion_date ? (
-                          new Date(vendor.last_assessment_completion_date).toLocaleDateString()
-                        ) : (
-                          <span className="text-slate-400">Initial Onboarding</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {dueDate ? (
-                          <div className="flex items-center gap-1.5">
-                            <Clock
-                              className={`w-3.5 h-3.5 ${isDue ? 'text-rose-600' : 'text-slate-400'}`}
-                            />
-                            <span className={isDue ? 'text-rose-600 font-bold' : 'text-slate-800'}>
-                              {dueDate.toLocaleDateString()}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">Calculated upon Live</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            vendor.lifecycle_status === 'Live'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}
-                        >
-                          {vendor.lifecycle_status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => handleLaunchReassessment(vendor)}
-                          disabled={launchingId === vendor.id}
-                          className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 rounded transition-colors disabled:opacity-50"
-                        >
-                          {launchingId === vendor.id ? 'Launching...' : 'Initiate Reassessment'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                return (
+                  <tr key={vendor.id}>
+                    <td className="font-semibold text-slate-900">
+                      {vendor.name}
+                      <div className="text-[11px] text-slate-500 font-mono">{vendor.primary_vendor_contact}</div>
+                    </td>
+                    <td>
+                      <span className={`tier-pill tier-pill-${vendor.vendor_tier.slice(-1)} mr-2`}>
+                        {vendor.vendor_tier}
+                      </span>
+                      <span className="text-xs text-slate-600">{vendor.vendor_category}</span>
+                    </td>
+                    <td className="text-xs">
+                      {vendor.last_assessment_completion_date
+                        ? new Date(vendor.last_assessment_completion_date).toLocaleDateString()
+                        : 'Initial Onboarding'}
+                    </td>
+                    <td className="text-xs">
+                      {dueDate ? (
+                        <div className="flex items-center gap-1.5">
+                          <Clock size={13} className={isDueSoon ? 'text-rose-600' : 'text-slate-400'} />
+                          <span className={isDueSoon ? 'text-rose-600 font-bold' : 'text-slate-800'}>
+                            {dueDate.toLocaleDateString()} {isDueSoon ? '(Within 90d SLA Window)' : ''}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">Set upon Live</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="badge badge-neutral">{vendor.renewal_status || 'Active'}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${vendor.lifecycle_status === 'Live' ? 'badge-success' : 'badge-info'}`}>
+                        {vendor.lifecycle_status}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleLaunchReassessment(vendor)}
+                        disabled={launchingId === vendor.id}
+                        className="btn btn-sm btn-secondary"
+                      >
+                        {launchingId === vendor.id ? 'Launching...' : 'Launch Reassessment'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
