@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   SlidersHorizontal,
   FolderOpen,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { UserProfile, PIIFinding, ProcessResponse } from '../../types';
 
@@ -33,6 +35,13 @@ export const PIIFindingsView: React.FC<PIIFindingsViewProps> = ({
   const [selectedFinding, setSelectedFinding] = useState<PIIFinding | null>(null);
   const [reviewNotes, setReviewNotes] = useState<string>('');
   const [updating, setUpdating] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDocId, categoryFilter, statusFilter, searchQuery]);
 
   // Sync selectedDocId with activeDocument when activeDocument changes
   useEffect(() => {
@@ -157,6 +166,12 @@ export const PIIFindingsView: React.FC<PIIFindingsViewProps> = ({
       );
     });
   }, [findings, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFindings.length / pageSize));
+  const paginatedFindings = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredFindings.slice(start, start + pageSize);
+  }, [filteredFindings, currentPage, pageSize]);
 
   const getBadgeClass = (type: string) => {
     switch (type.toUpperCase()) {
@@ -354,7 +369,7 @@ export const PIIFindingsView: React.FC<PIIFindingsViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredFindings.map((f, idx) => (
+                {paginatedFindings.map((f, idx) => (
                   <tr
                     key={f.id || idx}
                     style={{
@@ -423,6 +438,57 @@ export const PIIFindingsView: React.FC<PIIFindingsViewProps> = ({
                 ))}
               </tbody>
             </table>
+            {filteredFindings.length > 0 && (
+              <div className="optiv-pagination">
+                <div className="optiv-pagination-info">
+                  Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> to{' '}
+                  <strong>{Math.min(currentPage * pageSize, filteredFindings.length)}</strong> of{' '}
+                  <strong>{filteredFindings.length}</strong> findings
+                </div>
+                <div className="optiv-pagination-actions">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 8, fontSize: '0.8rem', color: 'var(--tprm-text-muted)' }}>
+                    <span>Rows:</span>
+                    <select
+                      className="optiv-select"
+                      style={{ height: 30, padding: '0 6px', fontSize: '0.75rem' }}
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    className="optiv-pagination-btn"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={14} />
+                    <span>Previous</span>
+                  </button>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, padding: '0 4px', color: 'var(--tprm-text-primary)' }}>
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="optiv-pagination-btn"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    aria-label="Next page"
+                  >
+                    <span>Next</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

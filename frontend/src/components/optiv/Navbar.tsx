@@ -6,7 +6,7 @@ import {
   ArrowLeftRight,
   FileCheck2,
   AlertOctagon,
-  Sparkles,
+  Shield,
 } from 'lucide-react';
 import type { ProcessResponse } from '../../types';
 
@@ -113,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Clean System Session Indicator - No account switching or predefined accounts */}
         <div className="optiv-session-badge" title="Active Security & Privacy Operator Session">
-          <Sparkles size={13} color="var(--tprm-cyan)" />
+          <Shield size={13} color="var(--tprm-cyan)" />
           <span>Authorized Operator</span>
         </div>
       </div>

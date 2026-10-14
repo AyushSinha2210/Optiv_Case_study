@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { DetectedEntity } from '../types';
-import { Eye, ShieldAlert, Sparkles, Filter, Lock } from 'lucide-react';
+import { Eye, ShieldAlert, FileCheck2, Filter, Lock } from 'lucide-react';
 
 interface DocumentComparisonProps {
   extractedText: string | null;
@@ -133,7 +133,7 @@ export const DocumentComparison: React.FC<DocumentComparisonProps> = ({
         <div className="glass-panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', height: '420px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Sparkles size={18} color={releaseAllowed ? '#10b981' : '#ef4444'} />
+              <FileCheck2 size={18} color={releaseAllowed ? '#10b981' : '#ef4444'} />
               <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Sanitized Output Artifact (Protected Masking)</h4>
             </div>
             <span className={`badge ${releaseAllowed ? 'badge-phone' : 'badge-gov'}`}>

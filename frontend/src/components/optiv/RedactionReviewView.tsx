@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   ExternalLink,
   Filter,
-  Sparkles,
   Layers,
 } from 'lucide-react';
 import type { UserProfile, ProcessResponse } from '../../types';
@@ -276,7 +275,7 @@ export const RedactionReviewView: React.FC<RedactionReviewViewProps> = ({
             {p.isTriggered && p.matches.length > 0 && (
               <div className="optiv-policy-evidence-box">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, color: 'var(--tprm-emerald)', fontWeight: 600 }}>
-                  <Sparkles size={13} />
+                  <CheckCircle2 size={13} />
                   <span>Document Evidence Matches ({p.matches.length}):</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

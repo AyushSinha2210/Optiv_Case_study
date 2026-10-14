@@ -607,3 +607,132 @@
 .text-emerald { color: var(--tprm-emerald); }
 .text-rose { color: var(--tprm-rose); }
 .text-cyan { color: var(--tprm-cyan); }
+
+/* ========================================================
+   MARKDOWN RENDERER STYLING
+   ======================================================== */
+.optiv-markdown-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--tprm-text-secondary);
+}
+
+.optiv-markdown-h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--tprm-text-primary);
+  margin: 12px 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--tprm-border);
+}
+
+.optiv-markdown-h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--tprm-text-primary);
+  margin: 10px 0 4px 0;
+}
+
+.optiv-markdown-h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--tprm-cyan);
+  margin: 8px 0 4px 0;
+}
+
+.optiv-markdown-p {
+  margin: 0;
+  color: var(--tprm-text-secondary);
+}
+
+.optiv-markdown-list {
+  margin: 4px 0 8px 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style-type: disc;
+}
+
+.optiv-markdown-li {
+  color: var(--tprm-text-secondary);
+  line-height: 1.5;
+}
+
+.optiv-inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background-color: var(--tprm-surface-subtle);
+  border: 1px solid var(--tprm-border);
+  color: var(--tprm-cyan);
+}
+
+.optiv-code-block {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background-color: var(--tprm-surface-subtle);
+  border: 1px solid var(--tprm-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  line-height: 1.45;
+  color: var(--tprm-text-primary);
+  margin: 8px 0;
+}
+
+/* ========================================================
+   PAGINATION CONTROLS
+   ======================================================== */
+.optiv-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--tprm-border);
+  background-color: var(--tprm-surface-subtle);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.optiv-pagination-info {
+  font-size: 0.8rem;
+  color: var(--tprm-text-muted);
+}
+
+.optiv-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.optiv-pagination-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--tprm-border);
+  background-color: var(--tprm-surface);
+  color: var(--tprm-text-primary);
+  font-size: 0.775rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.optiv-pagination-btn:hover:not(:disabled) {
+  background-color: var(--tprm-surface-hover);
+  border-color: var(--tprm-border-strong);
+}
+
+.optiv-pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+

@@ -6,6 +6,7 @@ import {
   Clock,
   Edit3,
   RotateCw,
+  X,
 } from 'lucide-react';
 import type { RiskFindingItem, UserProfile } from '../../types';
 
@@ -300,8 +301,9 @@ export const RiskFindingsView: React.FC<RiskFindingsViewProps> = ({
                 type="button"
                 onClick={() => setSelectedFinding(null)}
                 className="btn btn-sm btn-secondary"
+                aria-label="Close dialog"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 

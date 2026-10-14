@@ -7,6 +7,7 @@ import {
   Search,
   ShieldCheck,
   RotateCw,
+  X,
 } from 'lucide-react';
 import type { TaskItem, UserProfile } from '../../types';
 
@@ -388,8 +389,9 @@ export const TasksApprovalsView: React.FC<TasksApprovalsViewProps> = ({
                 type="button"
                 onClick={() => setActionModal(null)}
                 className="btn btn-sm btn-secondary"
+                aria-label="Close dialog"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 

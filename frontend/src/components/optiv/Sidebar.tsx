@@ -9,7 +9,7 @@ import {
   ScrollText,
   Download,
   Settings,
-  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 
 export type OptivTab =
@@ -100,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Sparkles size={16} color="var(--tprm-indigo)" />
+          <HelpCircle size={16} color="var(--tprm-indigo)" />
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tprm-text-primary)' }}>
             AI Privacy Copilot
           </span>
