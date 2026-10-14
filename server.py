@@ -19,6 +19,8 @@ import sys
 import tempfile
 import json
 import hashlib
+import hmac
+import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
@@ -68,6 +70,8 @@ from src.cadence_tprm.database import (
 )
 from src.cadence_tprm.seed.seed_data import seed_database as seed_tprm_database
 
+logger = logging.getLogger("optiv.server")
+
 app = FastAPI(
     title="OPTIV Document Privacy & PII Protection Workspace",
     description="Enterprise Document Privacy, PII Detection, Redaction, Verification, and Audit Platform",
@@ -75,6 +79,7 @@ app = FastAPI(
 )
 
 # Auto-initialize and seed databases
+_DB_INIT_ERROR: Optional[str] = None
 try:
     init_tprm_db(tprm_engine)
     init_pii_guard_db()
@@ -83,7 +88,8 @@ try:
     _db.close()
 
 except Exception as e:
-    print(f"Database initialization warning: {e}")
+    _DB_INIT_ERROR = sanitize_error_message(str(e))
+    logger.exception("Database initialization failed")
 
 # Mount TPRM REST API
 app.include_router(tprm_api_router)
@@ -91,10 +97,17 @@ app.include_router(tprm_api_router)
 # Enable CORS for Vite development server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if origin.strip()
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Email", "X-Ironclad-Signature", "X-Ironclad-Timestamp"],
 )
 
 SUPPORTED_EXTENSIONS = {
@@ -189,12 +202,30 @@ class FindingReviewRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: str
-    password: Optional[str] = None
+    password: str = Field(min_length=1)
 
 
-def get_current_user(x_user_email: Optional[str] = Header(None)) -> Dict[str, Any]:
-    email = x_user_email or "admin@cadence.com"
-    return DEFAULT_PERSONAS.get(email, DEFAULT_PERSONAS["admin@cadence.com"])
+def get_current_user(
+    x_user_email: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+        user = _AUTH_TOKENS.get(token)
+        if user:
+            return user
+
+    environment = os.getenv("TPRM_ENV", "development").lower()
+    if x_user_email and environment in {"development", "test"}:
+        user = DEFAULT_PERSONAS.get(x_user_email.strip().lower())
+        if user:
+            return user
+
+    raise HTTPException(
+        status_code=401,
+        detail="Authentication is required.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def calculate_integrity_hash(file_bytes: bytes) -> str:
@@ -209,25 +240,26 @@ def calculate_integrity_hash(file_bytes: bytes) -> str:
 @app.get("/health")
 def root_health_check():
     return {
-        "status": "healthy",
+        "status": "degraded" if _DB_INIT_ERROR else "healthy",
         "service": "optiv-document-privacy-workspace",
         "version": "2.0.0",
     }
 
 
-@app.get("/health")
-def root_health_check():
+@app.get("/api/tprm/health")
+def tprm_health_check():
     return {
-        "status": "healthy",
+        "status": "degraded" if _DB_INIT_ERROR else "healthy",
         "service": "cadence-unified-platform",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "database": "unavailable" if _DB_INIT_ERROR else "ready",
     }
 
 
 @app.get("/api/health")
 def health_check():
     return {
-        "status": "healthy",
+        "status": "degraded" if _DB_INIT_ERROR else "healthy",
         "service": "pii-guard-backend",
         "version": "2.0.0",
         "governance": "Cadence Financial Group & Optiv Security",
@@ -268,8 +300,8 @@ def list_scenarios():
                         "expected_count": fix.get("expected_entity_count", 0),
                         "size_bytes": f_path.stat().st_size if f_path.exists() else 0,
                     })
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Scenario manifest could not be loaded: %s", sanitize_error_message(str(exc)))
 
     if not scenarios and FIXTURES_DIR.exists():
         for f in sorted(FIXTURES_DIR.glob("*.*")):
@@ -400,8 +432,8 @@ async def process_document_endpoint(
                     "rationale": f"Identified sensitive {ent.type} entity conforming to Cadence Financial Governance Mandate",
                     "page": page_num,
                 })
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Document preview generation failed: %s", sanitize_error_message(str(exc)))
 
         # Native Format Redaction Generation
         if res.release_allowed and res.verification_status == "PASS":
@@ -452,8 +484,8 @@ async def process_document_endpoint(
             try:
                 content_bytes = art_mgr.read_artifact_bytes(res.artifact_ref, res.document_id, True)
                 redacted_text = content_bytes.decode("utf-8", errors="replace")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Redacted preview could not be loaded: %s", sanitize_error_message(str(exc)))
 
         # Calculate stage durations
         stage_history_payload = []
@@ -476,6 +508,11 @@ async def process_document_endpoint(
             if res.completed_at
             else 0.0
         )
+
+        # Never expose original extracted text or raw entity values to the browser.
+        # The native redaction path above has already consumed the internal values.
+        safe_entities_data = [{**entity, "value": None} for entity in entities_data]
+        safe_extracted_text = redacted_text if res.release_allowed else None
 
         response_payload = {
             "document_id": res.document_id,
@@ -500,9 +537,9 @@ async def process_document_endpoint(
             "safe_error_code": res.safe_error_code,
             "artifact_ref": res.artifact_ref,
             "original_ref": orig_ref,
-            "extracted_text": extracted_text,
+            "extracted_text": safe_extracted_text,
             "redacted_text": redacted_text,
-            "entities": entities_data,
+            "entities": safe_entities_data,
         }
 
         # Cache for immediate session
@@ -541,8 +578,8 @@ async def process_document_endpoint(
         if temp_path and temp_path.exists():
             try:
                 temp_path.unlink()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Temporary file cleanup failed: %s", sanitize_error_message(str(exc)))
 
 
 # ---------------------------------------------------------------------------
@@ -596,8 +633,8 @@ def list_runs_endpoint(
         with TPRMSessionLocal() as db:
             runs = list_processing_runs(db, workflow_status=status, limit=limit, offset=offset)
             return {"runs": [r.to_dict() for r in runs], "total": len(runs)}
-    except Exception:
-        # Fallback to cache
+    except Exception as exc:
+        logger.warning("Persistent run listing failed; using session cache: %s", sanitize_error_message(str(exc)))
         cached_runs = [c["payload"] for c in _DOC_CACHE.values()]
         return {"runs": cached_runs, "total": len(cached_runs)}
 
@@ -614,8 +651,8 @@ def get_run_endpoint(document_id: str):
             run = get_processing_run(db, document_id)
             if run:
                 return run.to_dict()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Persistent run lookup failed: %s", sanitize_error_message(str(exc)))
 
     raise HTTPException(status_code=404, detail="Processing run not found")
 
@@ -694,8 +731,8 @@ def download_original_document(
                 if run and run.original_ref:
                     orig_ref = run.original_ref
                     orig_name = run.original_filename
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Original artifact lookup failed: %s", sanitize_error_message(str(exc)))
 
     if not orig_ref:
         raise HTTPException(status_code=404, detail="Original document artifact not found.")
@@ -749,8 +786,8 @@ def download_artifact(document_id: str):
                     )
         except HTTPException:
             raise
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Released artifact lookup failed: %s", sanitize_error_message(str(exc)))
         raise HTTPException(status_code=404, detail="Document not found or session expired.")
 
     if not res.release_allowed or res.verification_status != "PASS" or not res.artifact_ref:
@@ -830,7 +867,8 @@ def list_global_audit_endpoint(
         with TPRMSessionLocal() as db:
             records = list_audit_records(db, document_id=document_id, stage=stage, limit=limit, offset=offset)
             return {"events": [r.to_dict() for r in records], "total": len(records)}
-    except Exception:
+    except Exception as exc:
+        logger.warning("Persistent audit lookup failed; using in-memory trail: %s", sanitize_error_message(str(exc)))
         trail = get_global_audit_trail()
         return {"events": [e.to_safe_dict() for e in trail._events], "total": len(trail._events)}
 
@@ -855,8 +893,8 @@ def assistant_chat(req: AssistantRequest):
                 run = get_processing_run(db, req.document_id)
                 if run:
                     payload = run.to_dict()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Assistant run lookup failed: %s", sanitize_error_message(str(exc)))
 
     if not payload:
         raise HTTPException(status_code=404, detail="Document not found.")
@@ -955,18 +993,20 @@ def assistant_chat(req: AssistantRequest):
 
 @app.post("/api/auth/login")
 def login_endpoint(req: LoginRequest):
-    """Authenticate user persona and return profile."""
-    user = DEFAULT_PERSONAS.get(req.email)
+    """Authenticate a configured development persona."""
+    expected_password = os.getenv("DEMO_LOGIN_PASSWORD")
+    if not expected_password:
+        raise HTTPException(
+            status_code=503,
+            detail="Demo login is not configured; use the organization identity provider.",
+        )
+    if not hmac.compare_digest(req.password, expected_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
+
+    user = DEFAULT_PERSONAS.get(req.email.strip().lower())
     if not user:
-        # Default fallback persona
-        user = {
-            "id": f"usr_{hashlib.md5(req.email.encode()).hexdigest()[:8]}",
-            "email": req.email,
-            "full_name": req.email.split("@")[0].replace(".", " ").title(),
-            "title": "Privacy Compliance Specialist",
-            "role": "ANALYST",
-            "permissions": ["read", "write", "redact", "audit"],
-        }
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
+
     token = f"tok_{hashlib.sha256(f'{req.email}_{datetime.now().isoformat()}'.encode()).hexdigest()[:24]}"
     _AUTH_TOKENS[token] = user
     return {"token": token, "user": user}

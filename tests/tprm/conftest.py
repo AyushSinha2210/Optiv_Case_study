@@ -1,5 +1,11 @@
 """Pytest configuration and fixtures for isolated TPRM test runs."""
 
+import os
+
+os.environ.setdefault("TPRM_ENV", "development")
+os.environ.setdefault("TPRM_DEMO_PASSWORD", "test-password")
+os.environ.setdefault("IRONCLAD_WEBHOOK_SECRET", "test-ironclad-secret")
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

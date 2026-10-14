@@ -35,7 +35,7 @@ def test_e2e_frontend_mount(client):
 def test_e2e_complete_document_workflow(client):
     """Execute complete end-to-end workflow from ingestion to artifact download."""
     # 1. Authenticate as Compliance Officer
-    auth_res = client.post("/api/auth/login", json={"email": "admin@cadence.com"})
+    auth_res = client.post("/api/auth/login", json={"email": "admin@cadence.com", "password": "test-password"})
     assert auth_res.status_code == 200
     user_data = auth_res.json()["user"]
     assert user_data["role"] == "ADMIN"

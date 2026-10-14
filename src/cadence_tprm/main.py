@@ -35,10 +35,10 @@ app = FastAPI(
 # Enable CORS for local Vite development frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Email", "X-Ironclad-Signature", "X-Ironclad-Timestamp"],
 )
 
 # Mount all TPRM API routes

@@ -1,8 +1,15 @@
 """End-to-End API Integration Tests for Cadence TPRM Endpoints (Lifecycle A through V)."""
 
+import hashlib
+import hmac
+import json
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 from src.cadence_tprm.main import app
+from src.cadence_tprm.config import settings
+import os
 
 client = TestClient(app)
 
@@ -15,8 +22,12 @@ def test_health_check_endpoints():
     assert res2.status_code == 200
     assert res2.json()["status"] == "healthy"
 
+def test_auth_requires_credentials():
+    res = client.get("/api/tprm/v1/auth/users")
+    assert res.status_code == 401
+
 def test_auth_login_and_me():
-    res = client.post("/api/tprm/v1/auth/login", json={"email": "daniela.figueroa@cadence.com"})
+    res = client.post("/api/tprm/v1/auth/login", json={"email": "daniela.figueroa@cadence.com", "password": "test-password"})
     assert res.status_code == 200
     data = res.json()
     assert "access_token" in data
@@ -173,6 +184,14 @@ def test_dashboard_reporting_and_export_endpoint():
     assert exp_res.status_code == 200
     assert "Apex Cloud Infrastructure Ltd" in exp_res.text
 
+def test_ironclad_webhook_rejects_unsigned_request():
+    res = client.post(
+        "/api/tprm/v1/integrations/ironclad/webhook",
+        json={"event_type": "contract.executed"},
+    )
+    assert res.status_code == 401
+
+
 def test_ironclad_webhook_ingestion():
     webhook_payload = {
         "event_type": "contract.executed",
@@ -192,7 +211,21 @@ def test_ironclad_webhook_ingestion():
             "website": "https://cloudflare.com"
         }
     }
-    wh_res = client.post("/api/tprm/v1/integrations/ironclad/webhook", json=webhook_payload)
+    body = json.dumps(webhook_payload).encode("utf-8")
+    timestamp = str(int(time.time()))
+    digest = hmac.new(
+        os.environ["IRONCLAD_WEBHOOK_SECRET"].encode("utf-8"),
+        f"{timestamp}.".encode("utf-8") + body,
+        hashlib.sha256,
+    ).hexdigest()
+    wh_res = client.post(
+        "/api/tprm/v1/integrations/ironclad/webhook",
+        content=body,
+        headers={
+            "X-Ironclad-Timestamp": timestamp,
+            "X-Ironclad-Signature": f"sha256={digest}",
+        },
+    )
     assert wh_res.status_code == 200
     res_json = wh_res.json()
     assert res_json["status"] == "success"

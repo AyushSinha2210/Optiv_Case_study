@@ -139,13 +139,17 @@ def get_current_user(
         if payload and "sub" in payload:
             target_email = payload["sub"]
 
-    if not target_email and email_header:
-        target_email = email_header
+    if not target_email and email_header and settings.ENVIRONMENT.lower() in {"development", "test"}:
+        target_email = email_header.strip().lower()
 
     if not target_email:
-        target_email = "daniela.figueroa@cadence.com"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication is required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    profile = AuthService.get_user_profile(db, target_email)
+    profile = AuthService.get_user_profile(db, target_email.strip().lower())
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

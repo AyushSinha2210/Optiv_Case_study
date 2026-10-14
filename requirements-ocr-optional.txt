@@ -1,0 +1,4 @@
+# Optional OCR backend.
+# rapidocr-onnxruntime 1.4.4 supports Python <3.13. Use Python 3.12 or
+# a newer RapidOCR release that explicitly supports the deployment Python.
+rapidocr-onnxruntime==1.4.4; python_version < "3.13"

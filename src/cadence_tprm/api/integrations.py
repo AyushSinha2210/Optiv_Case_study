@@ -1,10 +1,16 @@
 """Integration endpoints for Ironclad, OneTrust, and Torii."""
 
+import hashlib
+import hmac
+import json
 import os
-from typing import Dict, Any
-from fastapi import APIRouter, Depends, Body
+import time
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from src.cadence_tprm.config import settings
 from src.cadence_tprm.database import get_db
 from src.cadence_tprm.models.vendor import Contract
 from src.cadence_tprm.services.integration_service import IntegrationService
@@ -12,65 +18,82 @@ from src.cadence_tprm.services.auth_service import get_current_user, require_tpr
 
 router = APIRouter(prefix="/integrations", tags=["Integrations"])
 
+
 @router.get("/status")
 def get_integrations_status(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Returns transparent status of external integrations vs local development adapters (Section 1.3-1.5, 21)."""
     contracts_count = db.query(Contract).count()
     return {
         "integrations": [
             {
                 "id": "ironclad",
                 "name": "Ironclad CLM Contract & Vendor Intake",
-                "role": "Primary entry point for New Vendor Request Form and Contract Submission Form (Section 1.4, 5.1)",
-                "direction": "Inbound: Ironclad -> Cadence TPRM (Table 9 Attributes)",
-                "mode": "Live Webhook Configured" if os.getenv("IRONCLAD_WEBHOOK_SECRET") else "Development Adapter (Local Webhook Active)",
-                "status": "Operational (Local Adapter)",
+                "mode": "Live Webhook Configured" if settings.IRONCLAD_WEBHOOK_SECRET else "Unconfigured",
+                "status": "Configured" if settings.IRONCLAD_WEBHOOK_SECRET else "Blocked: webhook secret missing",
                 "synced_records": contracts_count,
                 "endpoint": "POST /api/tprm/v1/integrations/ironclad/webhook",
             },
             {
                 "id": "onetrust",
                 "name": "OneTrust TPRM Configuration & Third-Party Exchange",
-                "role": "Authoritative workflow, DDQ, SLA, and risk rule specification engine (Section 1.3, 6.0)",
-                "direction": "Internal Workflow Engine + Outbound Sync Adapter",
-                "mode": "Live API Connected" if os.getenv("ONETRUST_API_KEY") else "Internal Standalone Engine + Local Sync Adapter",
-                "status": "Operational (Internal Engine)",
+                "mode": "Live API Connected" if os.getenv("ONETRUST_API_KEY") else "Internal Adapter",
+                "status": "Configured" if os.getenv("ONETRUST_API_KEY") else "Adapter only",
                 "synced_records": contracts_count,
                 "endpoint": "POST /api/tprm/v1/integrations/onetrust/sync/{vendor_id}",
             },
             {
                 "id": "torii",
                 "name": "Torii SaaS Deprovisioning & Asset Revocation",
-                "role": "Proposed future enhancement for API-triggered deprovisioning during offboarding (Section 1.5, 4.2.3)",
-                "direction": "Outbound: Cadence TPRM -> Torii API",
-                "mode": "Live API Connected" if os.getenv("TORII_API_KEY") else "Simulated Future Capability Adapter (Pending Production API Key)",
-                "status": "Pending Future Capability (Simulated Adapter)",
+                "mode": "Live API Connected" if settings.TORII_API_KEY else "Adapter only",
+                "status": "Configured" if settings.TORII_API_KEY else "Blocked: API key missing",
                 "synced_records": 0,
                 "endpoint": "POST /api/tprm/v1/integrations/torii/revoke/{vendor_id}",
-            },
-            {
-                "id": "email_smtp",
-                "name": "External Email Delivery (SMTP / SendGrid)",
-                "role": "Dispatches 'Vendor Upcoming Re-Assessment' and SLA reminder emails (Section 17, 20)",
-                "direction": "Outbound Email",
-                "mode": "Live SMTP Connected" if os.getenv("SMTP_HOST") else "In-App Notification Center Active (External SMTP Unconfigured)",
-                "status": "In-App Active (SMTP Unconfigured)",
-                "synced_records": 0,
-                "endpoint": "GET /api/tprm/v1/tasks/notifications",
             },
         ]
     }
 
+
+def _verify_ironclad_signature(body: bytes, signature: Optional[str], timestamp: Optional[str]) -> None:
+    """Verify a fresh timestamped HMAC-SHA256 webhook signature."""
+    secret = os.getenv("IRONCLAD_WEBHOOK_SECRET") or settings.IRONCLAD_WEBHOOK_SECRET
+    if not secret:
+        raise HTTPException(status_code=503, detail="Ironclad webhook is not configured.")
+    if not signature or not timestamp:
+        raise HTTPException(status_code=401, detail="Missing webhook signature.")
+    try:
+        timestamp_int = int(timestamp)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Invalid webhook timestamp.") from exc
+    if abs(int(time.time()) - timestamp_int) > 300:
+        raise HTTPException(status_code=401, detail="Expired webhook signature.")
+
+    signed_payload = f"{timestamp}.".encode("utf-8") + body
+    expected = hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
+    provided = signature.removeprefix("sha256=")
+    if not hmac.compare_digest(expected, provided):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature.")
+
+
 @router.post("/ironclad/webhook")
-def ironclad_webhook(
-    payload: Dict[str, Any] = Body(...),
-    db: Session = Depends(get_db)
+async def ironclad_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_ironclad_signature: Optional[str] = Header(None),
+    x_ironclad_timestamp: Optional[str] = Header(None),
 ):
-    """Public or HMAC-gated webhook receiver for Ironclad contract lifecycle events."""
+    """Receive only fresh, HMAC-authenticated Ironclad events."""
+    body = await request.body()
+    _verify_ironclad_signature(body, x_ironclad_signature, x_ironclad_timestamp)
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="Webhook body must be valid JSON.") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Webhook body must be a JSON object.")
     return IntegrationService.process_ironclad_webhook(db, payload)
+
 
 @router.post("/onetrust/sync/{vendor_id}")
 def sync_onetrust(
@@ -79,6 +102,7 @@ def sync_onetrust(
     current_user: dict = Depends(require_tprm_admin)
 ):
     return IntegrationService.sync_to_onetrust(db, vendor_id)
+
 
 @router.post("/torii/revoke/{vendor_id}")
 def torii_revoke(
