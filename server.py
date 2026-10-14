@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response, Query, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 # Backend pipeline imports
@@ -1018,6 +1018,17 @@ def update_settings_endpoint(updates: Dict[str, Any]):
 FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
 if FRONTEND_DIST.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+else:
+    @app.get("/", response_class=HTMLResponse)
+    def serve_frontend_root():
+        """Serve frontend root index or workspace fallback."""
+        frontend_html = ROOT_DIR / "frontend" / "index.html"
+        if frontend_html.exists():
+            return HTMLResponse(content=frontend_html.read_text(encoding="utf-8"), status_code=200)
+        return HTMLResponse(
+            content='<!DOCTYPE html><html lang="en"><head><title>OPTIV Document Privacy Workspace</title></head><body><div id="root"></div></body></html>',
+            status_code=200,
+        )
 
 
 if __name__ == "__main__":
