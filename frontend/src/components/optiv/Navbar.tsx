@@ -1,154 +1,120 @@
 import React from 'react';
-import { ShieldCheck, Moon, Sun, LogOut, User, ArrowLeftRight } from 'lucide-react';
-import type { UserProfile } from '../../types';
+import {
+  ShieldCheck,
+  Moon,
+  Sun,
+  ArrowLeftRight,
+  FileCheck2,
+  AlertOctagon,
+  Sparkles,
+} from 'lucide-react';
+import type { ProcessResponse } from '../../types';
 
 interface NavbarProps {
-  currentUser: UserProfile;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
-  onSwitchPersona: (email: string) => void;
-  onLogout: () => void;
   currentView: string;
+  activeDocument?: ProcessResponse | null;
   isProcessing?: boolean;
   onTogglePlatform: () => void;
   activePlatform: 'pii_workspace' | 'tprm';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentUser,
   theme,
   onToggleTheme,
-  onSwitchPersona,
-  onLogout,
   currentView,
+  activeDocument,
   isProcessing = false,
   onTogglePlatform,
   activePlatform,
 }) => {
+  // Compute display name of current view
+  const viewTitle = currentView.replace(/_/g, ' ');
+
   return (
     <header className="optiv-header">
-      {/* Brand Identity */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-              padding: '6px 8px',
-              borderRadius: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ShieldCheck size={20} color="#ffffff" />
+      {/* Left: Brand Identity & Breadcrumb */}
+      <div className="optiv-header-left">
+        <div className="optiv-brand-group">
+          <div className="optiv-logo-badge">
+            <ShieldCheck size={18} color="#ffffff" strokeWidth={2.5} />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.02em', color: 'var(--tprm-text-primary)' }}>
-                OPTIV
-              </span>
-              <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                PRIVACY WORKSPACE
-              </span>
+          <div className="optiv-brand-text">
+            <div className="optiv-brand-title">
+              <span>OPTIV</span>
+              <span className="optiv-workspace-pill">PRIVACY WORKSPACE</span>
             </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)', lineHeight: 1 }}>
-              Cadence Financial Group & Optiv Security
-            </div>
+            <div className="optiv-brand-sub">Cadence Financial Group & Optiv Security</div>
           </div>
         </div>
 
-        <div style={{ height: 24, width: 1, backgroundColor: 'var(--tprm-border)' }} />
+        <div className="optiv-header-divider" />
 
-        {/* Workspace Context */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
-          <span style={{ color: 'var(--tprm-text-muted)' }}>Workspace</span>
-          <span style={{ color: 'var(--tprm-border-strong)' }}>/</span>
-          <span style={{ fontWeight: 600, color: 'var(--tprm-text-primary)', textTransform: 'capitalize' }}>
-            {currentView.replace(/_/g, ' ')}
-          </span>
+        {/* Breadcrumb Context */}
+        <div className="optiv-breadcrumb">
+          <span className="optiv-breadcrumb-root">Workspace</span>
+          <span className="optiv-breadcrumb-sep">/</span>
+          <span className="optiv-breadcrumb-active">{viewTitle}</span>
         </div>
       </div>
 
-      {/* Center Processing Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* Center: Dynamic Active Document & Gate Telemetry */}
+      <div className="optiv-header-center">
         {isProcessing ? (
-          <div className="badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
+          <div className="optiv-status-pill processing">
             <span className="pulsing-dot" />
-            <span>Multi-Stage Scanning In Progress</span>
+            <span>Scanning In Progress</span>
+          </div>
+        ) : activeDocument ? (
+          <div className={`optiv-status-pill ${activeDocument.release_allowed ? 'passed' : 'blocked'}`}>
+            {activeDocument.release_allowed ? (
+              <FileCheck2 size={14} className="text-emerald" />
+            ) : (
+              <AlertOctagon size={14} className="text-rose" />
+            )}
+            <span className="optiv-status-docname">
+              Doc: {activeDocument.document_id.slice(0, 16)}...
+            </span>
+            <span className="optiv-status-dot">•</span>
+            <span className="optiv-status-verdict">
+              {activeDocument.release_allowed ? 'Zero-Leakage PASS' : 'Gate BLOCKED'}
+            </span>
           </div>
         ) : (
-          <div className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tprm-emerald)' }} />
-            <span>Zero-Leakage Gate Active</span>
+          <div className="optiv-status-pill idle">
+            <span className="optiv-idle-dot" />
+            <span>Zero-Leakage Fail-Closed Gate Active</span>
           </div>
         )}
+      </div>
 
+      {/* Right: Controls & Active Operator Badge */}
+      <div className="optiv-header-right">
         {/* Switch Platform Mode (OPTIV vs TPRM) */}
         <button
           onClick={onTogglePlatform}
-          className="btn-secondary"
-          style={{ fontSize: '0.75rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 6 }}
+          className="optiv-btn-header"
           title="Toggle between OPTIV Document Privacy and TPRM Risk Governance"
         >
           <ArrowLeftRight size={14} />
           <span>Switch to {activePlatform === 'pii_workspace' ? 'TPRM Platform' : 'OPTIV Privacy'}</span>
         </button>
-      </div>
 
-      {/* Right Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* Theme Selector */}
         <button
           onClick={onToggleTheme}
-          className="btn-secondary"
-          style={{ padding: '6px 10px', borderRadius: 8 }}
+          className="optiv-btn-header icon-only"
           title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} theme`}
+          aria-label="Toggle Theme"
         >
-          {theme === 'dark' ? <Sun size={16} color="#fbbf24" /> : <Moon size={16} color="#64748b" />}
+          {theme === 'dark' ? <Sun size={15} color="#fbbf24" /> : <Moon size={15} color="#64748b" />}
         </button>
 
-        {/* User Persona Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '4px 10px',
-              borderRadius: 8,
-              backgroundColor: 'var(--tprm-surface-subtle)',
-              border: '1px solid var(--tprm-border)',
-              fontSize: '0.8rem',
-            }}
-          >
-            <User size={14} color="var(--tprm-indigo)" />
-            <select
-              value={currentUser.email}
-              onChange={(e) => onSwitchPersona(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--tprm-text-primary)',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                outline: 'none',
-              }}
-            >
-              <option value="admin@cadence.com">Daniela Figueroa (Compliance Officer)</option>
-              <option value="analyst@cadence.com">Marcus Vance (Privacy Analyst)</option>
-              <option value="auditor@cadence.com">Sarah Chen (Control Auditor)</option>
-            </select>
-          </div>
-
-          <button
-            onClick={onLogout}
-            className="btn-secondary"
-            style={{ padding: '6px 10px', color: 'var(--tprm-rose)' }}
-            title="Sign out"
-          >
-            <LogOut size={15} />
-          </button>
+        {/* Clean System Session Indicator - No account switching or predefined accounts */}
+        <div className="optiv-session-badge" title="Active Security & Privacy Operator Session">
+          <Sparkles size={13} color="var(--tprm-cyan)" />
+          <span>Authorized Operator</span>
         </div>
       </div>
     </header>

@@ -318,6 +318,10 @@ export interface DetectedEntity {
   confidence: number;
   value: string;
   masked_value: string;
+  detector_method?: string;
+  rule_id?: string;
+  rationale?: string;
+  page?: number;
 }
 
 export interface ProcessResponse {

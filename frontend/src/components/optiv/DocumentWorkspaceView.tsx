@@ -23,6 +23,9 @@ import type {
 interface DocumentWorkspaceViewProps {
   currentUser: UserProfile;
   initialDocumentId?: string | null;
+  initialEntityIndex?: number | null;
+  activeDocument?: ProcessResponse | null;
+  onDocumentChange?: (doc: ProcessResponse) => void;
   onOpenAssistant: (documentId: string) => void;
   scenarios: ScenarioFixture[];
 }
@@ -30,6 +33,9 @@ interface DocumentWorkspaceViewProps {
 export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
   currentUser,
   initialDocumentId,
+  initialEntityIndex,
+  activeDocument,
+  onDocumentChange,
   onOpenAssistant,
   scenarios,
 }) => {
@@ -38,23 +44,39 @@ export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [simulateFailure, setSimulateFailure] = useState<boolean>(false);
   const [processing, setProcessing] = useState<boolean>(false);
-  const [result, setResult] = useState<ProcessResponse | null>(null);
+  const [result, setResult] = useState<ProcessResponse | null>(activeDocument || null);
   const [error, setError] = useState<string | null>(null);
 
   // Inspection navigation
-  const [selectedEntityIndex, setSelectedEntityIndex] = useState<number | null>(null);
+  const [selectedEntityIndex, setSelectedEntityIndex] = useState<number | null>(initialEntityIndex ?? null);
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [showOriginalValues, setShowOriginalValues] = useState<boolean>(false);
 
+  // Sync activeDocument
+  useEffect(() => {
+    if (activeDocument) {
+      setResult(activeDocument);
+    }
+  }, [activeDocument]);
+
+  useEffect(() => {
+    if (initialEntityIndex !== undefined && initialEntityIndex !== null) {
+      setSelectedEntityIndex(initialEntityIndex);
+    }
+  }, [initialEntityIndex]);
+
   // Load initial document if supplied
   useEffect(() => {
-    if (initialDocumentId) {
+    if (initialDocumentId && (!activeDocument || activeDocument.document_id !== initialDocumentId)) {
       fetch(`/api/runs/${initialDocumentId}`)
         .then((res) => {
           if (res.ok) return res.json();
           throw new Error('Not found');
         })
-        .then((data: ProcessResponse) => setResult(data))
+        .then((data: ProcessResponse) => {
+          setResult(data);
+          if (onDocumentChange) onDocumentChange(data);
+        })
         .catch(() => {});
     }
   }, [initialDocumentId]);
@@ -82,7 +104,7 @@ export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
       const res = await fetch('/api/process', {
         method: 'POST',
         headers: {
-          'X-User-Email': currentUser.email,
+          'X-User-Email': currentUser?.email || 'privacy@optiv.security',
         },
         body: formData,
       });
@@ -94,6 +116,9 @@ export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
 
       const data: ProcessResponse = await res.json();
       setResult(data);
+      if (onDocumentChange) {
+        onDocumentChange(data);
+      }
     } catch (err: any) {
       setError(err.message || 'Error processing document');
     } finally {

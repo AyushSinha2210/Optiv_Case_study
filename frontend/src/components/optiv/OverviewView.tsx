@@ -12,16 +12,18 @@ import {
   TrendingUp,
   RefreshCw,
 } from 'lucide-react';
-import type { OverviewMetrics, UserProfile } from '../../types';
+import type { OverviewMetrics, UserProfile, ProcessResponse } from '../../types';
 
 interface OverviewViewProps {
   currentUser: UserProfile;
+  activeDocument?: ProcessResponse | null;
   onNavigateToWorkspace: (documentId?: string) => void;
   onNavigateToTab: (tab: any) => void;
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
   currentUser,
+  activeDocument,
   onNavigateToWorkspace,
   onNavigateToTab,
 }) => {
@@ -141,6 +143,48 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Active Document Highlight Banner */}
+      {activeDocument && (
+        <div className="optiv-doc-banner">
+          <div className="optiv-doc-banner-info">
+            <div className="optiv-doc-icon-wrap" style={{ backgroundColor: activeDocument.release_allowed ? 'var(--tprm-emerald-light)' : 'rgba(239, 68, 68, 0.15)', color: activeDocument.release_allowed ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>
+              <FileText size={22} />
+            </div>
+            <div className="optiv-doc-meta">
+              <div className="optiv-doc-title-row">
+                <span className="optiv-doc-title">Active Document: {activeDocument.document_id}</span>
+                <span className={`badge ${activeDocument.release_allowed ? 'badge-success' : 'badge-danger'}`}>
+                  {activeDocument.release_allowed ? 'RELEASE AUTHORIZED' : 'GATE BLOCKED'}
+                </span>
+                <span className="badge badge-info">{activeDocument.source_type?.toUpperCase()}</span>
+              </div>
+              <div className="optiv-doc-stats-row">
+                <span>Findings: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.entities.length}</strong></span>
+                <span>•</span>
+                <span>Redactions Applied: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.redactions_applied}</strong></span>
+                <span>•</span>
+                <span>Verification: <strong style={{ color: activeDocument.verification_status === 'PASS' ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>{activeDocument.verification_status}</strong></span>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => onNavigateToTab('findings')}
+              className="optiv-btn-header"
+            >
+              Inspect {activeDocument.entities.length} Findings
+            </button>
+            <button
+              onClick={() => onNavigateToWorkspace(activeDocument.document_id)}
+              className="btn-primary"
+              style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+            >
+              View in Diff Workspace
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>

@@ -32,42 +32,19 @@ import { WorkflowsView } from './components/tprm/WorkflowsView';
 import { OrganizationAdminView } from './components/tprm/OrganizationAdminView';
 import { AuditLedgerView as TPRMAuditLedgerView } from './components/tprm/AuditLedgerView';
 
-import type { UserProfile, ScenarioFixture, NotificationItem } from './types';
+import type { UserProfile, ScenarioFixture, NotificationItem, ProcessResponse } from './types';
 
-const PERSONAS: Record<string, UserProfile> = {
-  'admin@cadence.com': {
-    id: 'usr_lead_auditor',
-    email: 'admin@cadence.com',
-    full_name: 'Daniela Figueroa',
-    title: 'Lead Compliance Auditor & Privacy Officer',
-    is_active: true,
-    is_admin: true,
-    groups: ['Vendor Risk Management Group', 'Legal Group', 'Compliance Officer'],
-    group_roles: { 'Compliance Officer': 'Admin', 'Vendor Risk Management Group': 'Admin' },
-    permissions: ['read', 'write', 'redact', 'release', 'audit', 'admin'],
-  },
-  'analyst@cadence.com': {
-    id: 'usr_privacy_analyst',
-    email: 'analyst@cadence.com',
-    full_name: 'Marcus Vance',
-    title: 'Senior Privacy & PII Analyst',
-    is_active: true,
-    is_admin: false,
-    groups: ['Data Quality Group', 'Privacy Analysts'],
-    group_roles: { 'Privacy Analysts': 'Edit' },
-    permissions: ['read', 'write', 'redact', 'audit'],
-  },
-  'auditor@cadence.com': {
-    id: 'usr_ext_auditor',
-    email: 'auditor@cadence.com',
-    full_name: 'Sarah Chen',
-    title: 'Independent Control Auditor',
-    is_active: true,
-    is_admin: false,
-    groups: ['Independent Audit Group'],
-    group_roles: { 'Independent Audit Group': 'Reviewer' },
-    permissions: ['read', 'audit'],
-  },
+// Default authorized security session without arbitrary switchable accounts
+const DEFAULT_OPERATOR: UserProfile = {
+  id: 'usr_optiv_operator',
+  email: 'privacy@optiv.security',
+  full_name: 'Optiv Privacy & Security Officer',
+  title: 'Lead Privacy Officer & Security Engineer',
+  is_active: true,
+  is_admin: true,
+  groups: ['Privacy Engineering Group', 'Security Compliance Group'],
+  group_roles: { 'Privacy Engineering Group': 'Admin', 'Security Compliance Group': 'Admin' },
+  permissions: ['read', 'write', 'redact', 'release', 'audit', 'admin'],
 };
 
 export const App: React.FC = () => {
@@ -85,15 +62,19 @@ export const App: React.FC = () => {
   // TPRM Platform Tab
   const [tprmTab, setTprmTab] = useState<TPRMNavigationTab>('dashboard');
 
-  // Authenticated user persona
-  const [currentUser, setCurrentUser] = useState<UserProfile>(PERSONAS['admin@cadence.com']);
+  // Single authorized session
+  const [currentUser, setCurrentUser] = useState<UserProfile>(DEFAULT_OPERATOR);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+
+  // Active Document State across all views
+  const [activeDocument, setActiveDocument] = useState<ProcessResponse | null>(null);
+  const [selectedWorkspaceDocId, setSelectedWorkspaceDocId] = useState<string | null>(null);
+  const [selectedEntityIndex, setSelectedEntityIndex] = useState<number | null>(null);
 
   // Scenarios & Metrics
   const [scenarios, setScenarios] = useState<ScenarioFixture[]>([]);
   const [openFindingsCount, setOpenFindingsCount] = useState<number>(0);
   const [blockedCount, setBlockedCount] = useState<number>(0);
-  const [selectedWorkspaceDocId, setSelectedWorkspaceDocId] = useState<string | null>(null);
 
   // AI Assistant Drawer state
   const [assistantOpen, setAssistantOpen] = useState<boolean>(false);
@@ -110,45 +91,58 @@ export const App: React.FC = () => {
     localStorage.setItem('optiv_theme', next);
   };
 
-  // Switch persona
-  const handleSwitchPersona = (email: string) => {
-    const p = PERSONAS[email] || {
-      id: `usr_${email}`,
-      email,
-      full_name: email.split('@')[0],
-      is_active: true,
-      is_admin: email.includes('admin'),
-      groups: ['Default User Group'],
-      group_roles: { 'Default User Group': 'Edit' },
-    };
-    setCurrentUser(p);
+  // Sync active document
+  const handleDocumentChange = (doc: ProcessResponse) => {
+    setActiveDocument(doc);
+    setSelectedWorkspaceDocId(doc.document_id);
+    if (doc.entities) {
+      setOpenFindingsCount(doc.entities.length);
+    }
+    setBlockedCount(doc.release_allowed ? 0 : 1);
   };
 
-  // Fetch scenarios and metrics
+  // Fetch initial scenarios and latest processing run so views behave with a live document
   useEffect(() => {
     fetch('/api/scenarios')
       .then((res) => res.json())
-      .then((data) => setScenarios(data.scenarios || []))
-      .catch(() => {});
-
-    fetch('/api/overview/metrics', {
-      headers: { 'X-User-Email': currentUser.email },
-    })
-      .then((res) => res.json())
       .then((data) => {
-        setOpenFindingsCount(data.findings_detected || 0);
-        setBlockedCount(data.documents_blocked_from_release || 0);
+        setScenarios(data.scenarios || []);
       })
       .catch(() => {});
-  }, [currentUser.email]);
+
+    // Load latest run from server
+    fetch('/api/runs?limit=1')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.runs && data.runs.length > 0) {
+          const latest = data.runs[0];
+          setActiveDocument(latest);
+          setSelectedWorkspaceDocId(latest.document_id);
+          if (latest.entities) {
+            setOpenFindingsCount(latest.entities.length);
+          }
+          setBlockedCount(latest.release_allowed ? 0 : 1);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/overview/metrics')
+      .then((res) => res.json())
+      .then((data) => {
+        setOpenFindingsCount((prev) => (prev > 0 ? prev : data.findings_detected || 0));
+        setBlockedCount((prev) => (prev > 0 ? prev : data.documents_blocked_from_release || 0));
+      })
+      .catch(() => {});
+  }, []);
 
   const handleOpenAssistant = (docId?: string) => {
-    setAssistantDocId(docId || selectedWorkspaceDocId || '03_mixed_pii.txt');
+    setAssistantDocId(docId || activeDocument?.document_id || '03_mixed_pii.txt');
     setAssistantOpen(true);
   };
 
-  const handleNavigateWorkspaceWithDoc = (docId?: string) => {
+  const handleNavigateWorkspaceWithDoc = (docId?: string, entityIdx?: number) => {
     if (docId) setSelectedWorkspaceDocId(docId);
+    if (entityIdx !== undefined) setSelectedEntityIndex(entityIdx);
     setOptivTab('workspace');
   };
 
@@ -170,19 +164,17 @@ export const App: React.FC = () => {
       {/* Platform Header */}
       {activePlatform === 'pii_workspace' ? (
         <Navbar
-          currentUser={currentUser}
           theme={theme}
           onToggleTheme={handleToggleTheme}
-          onSwitchPersona={handleSwitchPersona}
-          onLogout={() => setShowLoginModal(true)}
           currentView={optivTab}
+          activeDocument={activeDocument}
           onTogglePlatform={() => setActivePlatform('tprm')}
           activePlatform={activePlatform}
         />
       ) : (
         <TPRMHeader
           currentUser={currentUser}
-          onSwitchUser={(email) => handleSwitchPersona(email)}
+          onSwitchUser={() => {}}
           notifications={notifications}
           onMarkNotificationRead={() => {}}
           theme={theme}
@@ -220,6 +212,7 @@ export const App: React.FC = () => {
               {optivTab === 'overview' && (
                 <OverviewView
                   currentUser={currentUser}
+                  activeDocument={activeDocument}
                   onNavigateToWorkspace={handleNavigateWorkspaceWithDoc}
                   onNavigateToTab={(tab) => setOptivTab(tab)}
                 />
@@ -229,6 +222,9 @@ export const App: React.FC = () => {
                 <DocumentWorkspaceView
                   currentUser={currentUser}
                   initialDocumentId={selectedWorkspaceDocId}
+                  initialEntityIndex={selectedEntityIndex}
+                  activeDocument={activeDocument}
+                  onDocumentChange={handleDocumentChange}
                   onOpenAssistant={(docId) => handleOpenAssistant(docId)}
                   scenarios={scenarios}
                 />
@@ -244,13 +240,15 @@ export const App: React.FC = () => {
               {optivTab === 'findings' && (
                 <PIIFindingsView
                   currentUser={currentUser}
-                  onNavigateToWorkspace={(docId) => handleNavigateWorkspaceWithDoc(docId)}
+                  activeDocument={activeDocument}
+                  onNavigateToWorkspace={(docId, entityIdx) => handleNavigateWorkspaceWithDoc(docId, entityIdx)}
                 />
               )}
 
               {optivTab === 'redaction' && (
                 <RedactionReviewView
                   currentUser={currentUser}
+                  activeDocument={activeDocument}
                   onNavigateToWorkspace={() => setOptivTab('workspace')}
                 />
               )}
@@ -258,6 +256,7 @@ export const App: React.FC = () => {
               {optivTab === 'verification' && (
                 <VerificationView
                   currentUser={currentUser}
+                  activeDocument={activeDocument}
                   onNavigateToWorkspace={() => setOptivTab('workspace')}
                 />
               )}
@@ -298,4 +297,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-
