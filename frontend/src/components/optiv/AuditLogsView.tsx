@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Download,
@@ -7,8 +7,12 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { UserProfile, AuditEvent } from '../../types';
+import { PageHeader } from './PageHeader';
+import { CopyButton } from './CopyButton';
 
 interface AuditLogsViewProps {
   currentUser: UserProfile;
@@ -20,6 +24,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ currentUser }) => 
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(15);
 
   const fetchAuditEvents = async () => {
     setLoading(true);
@@ -46,6 +52,10 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ currentUser }) => 
     fetchAuditEvents();
   }, [stageFilter, currentUser.email]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, stageFilter]);
+
   const handleExportJSON = () => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(events, null, 2));
     const downloadAnchor = document.createElement('a');
@@ -58,15 +68,14 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ currentUser }) => 
 
   const handleExportCSV = () => {
     if (events.length === 0) return;
-    const headers = ['event_id', 'document_id', 'timestamp', 'stage', 'event_type', 'status', 'verification_status', 'release_decision'];
+    const headers = ['EventID', 'Timestamp', 'EventType', 'Stage', 'DocumentID', 'Status', 'ReleaseDecision'];
     const rows = events.map((e) => [
       e.event_id || '',
-      e.document_id || '',
       e.timestamp || '',
-      e.stage || '',
       e.event_type || '',
+      e.stage || '',
+      e.document_id || '',
       e.status || '',
-      e.verification_status || '',
       e.release_decision ? 'TRUE' : 'FALSE',
     ]);
     const csvContent = [headers.join(','), ...rows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
@@ -79,106 +88,129 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ currentUser }) => 
     downloadAnchor.remove();
   };
 
-  const filteredEvents = events.filter((e) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (e.event_id && e.event_id.toLowerCase().includes(q)) ||
-      (e.document_id && e.document_id.toLowerCase().includes(q)) ||
-      (e.event_type && e.event_type.toLowerCase().includes(q))
-    );
-  });
+  const filteredEvents = useMemo(() => {
+    return events.filter((e) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (e.event_id && e.event_id.toLowerCase().includes(q)) ||
+        (e.document_id && e.document_id.toLowerCase().includes(q)) ||
+        (e.event_type && e.event_type.toLowerCase().includes(q))
+      );
+    });
+  }, [events, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
+  const paginatedEvents = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredEvents.slice(start, start + pageSize);
+  }, [filteredEvents, currentPage, pageSize]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Header & Controls */}
-      <div className="optiv-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--tprm-text-primary)' }}>
-            Tamper-Evident Immutable Audit Trail
-          </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--tprm-text-muted)', margin: '4px 0 0' }}>
-            Allowlist metadata serialization guaranteeing zero document text or PII leakage in audit records.
-          </p>
-        </div>
+      {/* Unified Page Header */}
+      <PageHeader
+        title="Tamper-Evident Immutable Audit Trail"
+        description="Append-only cryptographic audit records with strict metadata-only projection: zero document text or PII leaked."
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleExportJSON}
+              className="btn-secondary"
+              disabled={events.length === 0}
+              title="Export all events in JSON format"
+            >
+              <Download size={14} />
+              <span>Export JSON</span>
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="btn-secondary"
+              disabled={events.length === 0}
+              title="Export all events in CSV format"
+            >
+              <Download size={14} />
+              <span>Export CSV</span>
+            </button>
+            <button
+              onClick={fetchAuditEvents}
+              className="btn-secondary"
+              disabled={loading}
+              title="Refresh audit trail"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+          </div>
+        }
+      />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Search */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--tprm-border)', backgroundColor: 'var(--tprm-surface)' }}>
-            <Search size={14} color="var(--tprm-text-muted)" />
-            <input
-              type="text"
-              placeholder="Search Event ID, Doc ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.8rem', color: 'var(--tprm-text-primary)' }}
-            />
+      {/* Filter and Search Bar */}
+      <div className="optiv-card" style={{ padding: '14px 18px' }}>
+        <div className="optiv-filter-bar" style={{ justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 260 }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: 360 }}>
+              <Search size={15} color="var(--tprm-text-muted)" style={{ position: 'absolute', left: 10, top: 11 }} />
+              <input
+                type="text"
+                className="optiv-input-search"
+                style={{ width: '100%', paddingLeft: 32 }}
+                placeholder="Search Event ID, Doc ID, Type..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <select
+              className="optiv-select"
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+              aria-label="Filter audit events by pipeline stage"
+            >
+              <option value="ALL">All Lifecycle Stages</option>
+              <option value="INGESTION">Ingestion</option>
+              <option value="NORMALIZATION">Normalization</option>
+              <option value="DETECTION">Detection</option>
+              <option value="REDACTION">Redaction</option>
+              <option value="VERIFICATION">Verification</option>
+              <option value="RELEASE_GATE">Release Gate</option>
+            </select>
           </div>
 
-          {/* Stage Filter */}
-          <select
-            value={stageFilter}
-            onChange={(e) => setStageFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: 6,
-              border: '1px solid var(--tprm-border)',
-              backgroundColor: 'var(--tprm-surface)',
-              color: 'var(--tprm-text-primary)',
-              fontSize: '0.8rem',
-            }}
-          >
-            <option value="ALL">All Lifecycle Stages</option>
-            <option value="RECEIVED">RECEIVED</option>
-            <option value="VALIDATED">VALIDATED</option>
-            <option value="EXTRACTED">EXTRACTED</option>
-            <option value="DETECTED">DETECTED</option>
-            <option value="REDACTED">REDACTED</option>
-            <option value="VERIFIED">VERIFIED</option>
-            <option value="RELEASED">RELEASED</option>
-            <option value="FAILED">FAILED</option>
-          </select>
-
-          <button onClick={handleExportJSON} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-            <Download size={13} />
-            <span>JSON</span>
-          </button>
-          <button onClick={handleExportCSV} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-            <Download size={13} />
-            <span>CSV</span>
-          </button>
-          <button onClick={fetchAuditEvents} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '0.8rem' }}>
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </button>
+          <div style={{ fontSize: '0.8rem', color: 'var(--tprm-text-muted)' }}>
+            Total Audit Records: <strong style={{ color: 'var(--tprm-text-primary)' }}>{events.length}</strong>
+          </div>
         </div>
       </div>
 
       {/* Events Timeline List */}
       <div className="optiv-card" style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--tprm-text-muted)', fontSize: '0.85rem' }}>
-            Loading audit records...
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--tprm-text-muted)', fontSize: '0.85rem' }}>
+            <RefreshCw size={20} className="animate-spin" style={{ margin: '0 auto 8px auto', display: 'block' }} />
+            <span>Loading immutable audit records...</span>
           </div>
         ) : filteredEvents.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--tprm-text-muted)', fontSize: '0.85rem' }}>
-            No audit records found matching current criteria.
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--tprm-text-muted)', fontSize: '0.85rem' }}>
+            No audit records match the selected criteria.
           </div>
         ) : (
           <div>
-            {filteredEvents.map((evt, idx) => {
-              const isExpanded = expandedEventId === (evt.event_id || `evt-${idx}`);
+            {paginatedEvents.map((evt, idx) => {
+              const eventKey = evt.event_id || `evt-${idx}`;
+              const isExpanded = expandedEventId === eventKey;
               const isSuccess = evt.status === 'success';
 
               return (
                 <div
-                  key={idx}
+                  key={eventKey}
                   style={{
                     borderBottom: '1px solid var(--tprm-border)',
                     backgroundColor: isExpanded ? 'var(--tprm-surface-subtle)' : undefined,
                   }}
                 >
                   <div
-                    onClick={() => setExpandedEventId(isExpanded ? null : (evt.event_id || `evt-${idx}`))}
+                    onClick={() => setExpandedEventId(isExpanded ? null : eventKey)}
                     style={{
                       padding: '14px 20px',
                       display: 'flex',
@@ -194,15 +226,18 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ currentUser }) => 
 
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--tprm-text-primary)' }}>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--tprm-text-primary)' }}>
                             {evt.event_type}
                           </span>
-                          <span className="badge badge-generic" style={{ fontSize: '0.65rem' }}>
+                          <span className="badge badge-generic" style={{ fontSize: '0.675rem' }}>
                             {evt.stage}
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                          {evt.event_id || 'evt-system'} • Doc: {evt.document_id || 'doc-general'}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.725rem', color: 'var(--tprm-text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                          <span>{evt.event_id || 'evt-system'}</span>
+                          <span>&bull;</span>
+                          <span>Doc: {evt.document_id || 'general'}</span>
+                          {evt.document_id && <CopyButton text={evt.document_id} iconSize={11} />}
                         </div>
                       </div>
                     </div>
@@ -218,8 +253,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ currentUser }) => 
                   {/* Expanded Event Details */}
                   {isExpanded && (
                     <div style={{ padding: '0 20px 16px 20px', fontSize: '0.75rem', color: 'var(--tprm-text-secondary)' }}>
-                      <div style={{ backgroundColor: 'var(--tprm-surface)', padding: 12, borderRadius: 6, border: '1px solid var(--tprm-border)', fontFamily: 'var(--font-mono)' }}>
-                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                      <div style={{ backgroundColor: 'var(--tprm-surface)', padding: 14, borderRadius: 8, border: '1px solid var(--tprm-border)', fontFamily: 'var(--font-mono)' }}>
+                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
                           {JSON.stringify(evt, null, 2)}
                         </pre>
                       </div>
@@ -228,6 +263,59 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ currentUser }) => 
                 </div>
               );
             })}
+
+            {/* Pagination Controls */}
+            {filteredEvents.length > 0 && (
+              <div className="optiv-pagination">
+                <div className="optiv-pagination-info">
+                  Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> to{' '}
+                  <strong>{Math.min(currentPage * pageSize, filteredEvents.length)}</strong> of{' '}
+                  <strong>{filteredEvents.length}</strong> audit records
+                </div>
+                <div className="optiv-pagination-actions">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 8, fontSize: '0.8rem', color: 'var(--tprm-text-muted)' }}>
+                    <span>Rows:</span>
+                    <select
+                      className="optiv-select"
+                      style={{ height: 30, padding: '0 6px', fontSize: '0.75rem' }}
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={15}>15</option>
+                      <option value={30}>30</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    className="optiv-pagination-btn"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={14} />
+                    <span>Previous</span>
+                  </button>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, padding: '0 4px', color: 'var(--tprm-text-primary)' }}>
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="optiv-pagination-btn"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    aria-label="Next page"
+                  >
+                    <span>Next</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

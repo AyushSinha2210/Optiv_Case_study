@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Download, FileText, Lock, FileSpreadsheet, ScrollText, RefreshCw, CheckCircle2 } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Lock,
+  FileSpreadsheet,
+  ScrollText,
+  RefreshCw,
+  CheckCircle2,
+  FolderOpen,
+} from 'lucide-react';
 import type { UserProfile } from '../../types';
+import { PageHeader } from './PageHeader';
+import { CopyButton } from './CopyButton';
 
 interface ReportsDownloadsViewProps {
   currentUser: UserProfile;
@@ -54,167 +65,221 @@ export const ReportsDownloadsView: React.FC<ReportsDownloadsViewProps> = ({ curr
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Header */}
-      <div className="optiv-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--tprm-text-primary)' }}>
-            Authorized Artifacts & Audit Export Hub
-          </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--tprm-text-muted)', margin: '4px 0 0' }}>
-            Download format-native sanitized artifacts, original evidence, and Contract D compliance reports.
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Unified Page Header */}
+      <PageHeader
+        title="Authorized Artifacts & Compliance Export Hub"
+        description="Retrieve format-native sanitized outputs, original evidence documents, metadata-only Contract D compliance reports, and entity findings matrices."
+        actions={
+          <button
+            onClick={fetchRuns}
+            className="btn-secondary"
+            disabled={loading}
+            title="Refresh available artifact records"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh Records</span>
+          </button>
+        }
+      />
+
+      {/* Document Selection Control */}
+      <div className="optiv-card" style={{ padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 280 }}>
+            <FolderOpen size={18} color="var(--tprm-text-muted)" />
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.775rem', fontWeight: 600, color: 'var(--tprm-text-muted)', display: 'block', marginBottom: 4 }}>
+                Target Processed Document:
+              </label>
+              <select
+                value={selectedDocId}
+                onChange={(e) => setSelectedDocId(e.target.value)}
+                className="optiv-select"
+                style={{ width: '100%', height: 38 }}
+                aria-label="Select processed document"
+              >
+                {runs.map((r) => (
+                  <option key={r.document_id} value={r.document_id}>
+                    {r.original_filename || 'document.txt'} ({r.document_id.slice(0, 18)}...) &bull; {r.release_allowed ? 'RELEASE: PASS' : 'RELEASE: BLOCKED'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {activeRun && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="optiv-doc-id-cell">
+                <span className="optiv-doc-id-text" title={activeRun.document_id}>
+                  {activeRun.document_id}
+                </span>
+                <CopyButton text={activeRun.document_id} />
+              </div>
+              <span className={`badge ${activeRun.release_allowed ? 'badge-success' : 'badge-danger'}`}>
+                {activeRun.release_allowed ? 'GATE: AUTHORIZED' : 'GATE: BLOCKED'}
+              </span>
+            </div>
+          )}
         </div>
-
-        <button onClick={fetchRuns} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh Records</span>
-        </button>
       </div>
 
-      {/* Select Document Run */}
-      <div className="optiv-card">
-        <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--tprm-text-secondary)', display: 'block', marginBottom: 6 }}>
-          Select Processed Document Run:
-        </label>
-        <select
-          value={selectedDocId}
-          onChange={(e) => setSelectedDocId(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            borderRadius: 6,
-            border: '1px solid var(--tprm-border)',
-            backgroundColor: 'var(--tprm-surface)',
-            color: 'var(--tprm-text-primary)',
-            fontSize: '0.85rem',
-            width: '100%',
-          }}
-        >
-          {runs.map((r) => (
-            <option key={r.document_id} value={r.document_id}>
-              {r.original_filename || 'document.txt'} ({r.document_id}) • {r.release_allowed ? 'RELEASE AUTHORIZED' : 'WITHHELD'}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Artifact Download Grid */}
+      {/* Two-Column Grid (2 Rows of 2 Cards on Desktop, 1 Col on Mobile) */}
       {activeRun ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <div className="optiv-two-col-grid">
           {/* Card 1: Sanitized Output Artifact */}
-          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-emerald-light)' }}>
-                <CheckCircle2 size={20} color="var(--tprm-emerald)" />
+          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ padding: 10, borderRadius: 10, backgroundColor: activeRun.release_allowed ? 'var(--tprm-emerald-light)' : 'rgba(239, 68, 68, 0.15)', color: activeRun.release_allowed ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>
+                {activeRun.release_allowed ? <CheckCircle2 size={22} /> : <Lock size={22} />}
               </div>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--tprm-text-primary)' }}>
-                  Sanitized Output Artifact
-                </h4>
-                <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)' }}>
-                  Format: {activeRun.file_type?.toUpperCase() || 'DOCUMENT'}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  1. Sanitized Output Artifact
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  Format: {activeRun.source_type?.toUpperCase() || activeRun.file_type?.toUpperCase() || 'DOCUMENT'} &bull; Non-Reversible
                 </span>
               </div>
+              <span className={`badge ${activeRun.release_allowed ? 'badge-success' : 'badge-danger'}`}>
+                {activeRun.release_allowed ? 'AVAILABLE' : 'WITHHELD'}
+              </span>
             </div>
 
-            <p style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
-              The newly generated sanitized copy in which all verified sensitive entities were permanently stripped.
+            <p style={{ fontSize: '0.8125rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
+              The newly generated sanitized copy in which all verified sensitive entities were permanently stripped. Safe for downstream LLM analysis when release is authorized.
             </p>
 
-            {activeRun.release_allowed ? (
-              <button onClick={downloadSanitized} className="btn-primary" style={{ marginTop: 'auto', justifyContent: 'center' }}>
-                <Download size={14} />
-                <span>Download Sanitized ({activeRun.file_type?.toUpperCase() || 'FILE'})</span>
+            <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+              {activeRun.release_allowed ? (
+                <button
+                  onClick={downloadSanitized}
+                  className="btn-primary"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  title="Download verified sanitized document"
+                >
+                  <Download size={15} />
+                  <span>Download Sanitized ({activeRun.source_type?.toUpperCase() || activeRun.file_type?.toUpperCase() || 'DOCUMENT'})</span>
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="btn-secondary"
+                  style={{ width: '100%', justifyContent: 'center', opacity: 0.65, cursor: 'not-allowed', color: 'var(--tprm-rose)' }}
+                  title="Release withheld by verification gate"
+                >
+                  <Lock size={15} />
+                  <span>Download Blocked (Verification Gate)</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: Original Evidence Document */}
+          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ padding: 10, borderRadius: 10, backgroundColor: 'var(--tprm-indigo-light)', color: 'var(--tprm-indigo)' }}>
+                <FileText size={22} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  2. Original Evidence Document
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  Immutable Source &bull; Permission Governed
+                </span>
+              </div>
+              <span className="badge badge-generic">AUDIT VAULT</span>
+            </div>
+
+            <p style={{ fontSize: '0.8125rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
+              The unmodified original file uploaded to the gateway. Kept in isolated storage with cryptographic integrity hashes for regulatory examination.
+            </p>
+
+            <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+              <button
+                onClick={downloadOriginal}
+                className="btn-secondary"
+                style={{ width: '100%', justifyContent: 'center' }}
+                title="Download immutable source file"
+              >
+                <Download size={15} />
+                <span>Download Original Source</span>
               </button>
-            ) : (
-              <button disabled className="btn-secondary" style={{ marginTop: 'auto', justifyContent: 'center', opacity: 0.6, cursor: 'not-allowed' }}>
-                <Lock size={14} color="var(--tprm-rose)" />
-                <span>Download Blocked (Verification Gate)</span>
+            </div>
+          </div>
+
+          {/* Card 3: Contract D JSON Compliance Report */}
+          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ padding: 10, borderRadius: 10, backgroundColor: 'var(--tprm-cyan-light)', color: 'var(--tprm-cyan)' }}>
+                <ScrollText size={22} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  3. Contract D Compliance Report
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  JSON Format &bull; Metadata-Only Projection
+                </span>
+              </div>
+              <span className="badge badge-info">JSON REPORT</span>
+            </div>
+
+            <p style={{ fontSize: '0.8125rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
+              Machine-readable structured audit telemetry detailing stage transitions, processing durations, applied rule IDs, and release authorization verdicts. Zero raw PII retained.
+            </p>
+
+            <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+              <button
+                onClick={() => downloadReport('json')}
+                className="btn-secondary"
+                style={{ width: '100%', justifyContent: 'center' }}
+                title="Download structured JSON compliance report"
+              >
+                <Download size={15} />
+                <span>Download Audit Report (JSON)</span>
               </button>
-            )}
+            </div>
           </div>
 
-          {/* Card 2: Original Input Document */}
-          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-indigo-light)' }}>
-                <FileText size={20} color="var(--tprm-indigo)" />
+          {/* Card 4: Tabular Findings Matrix */}
+          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ padding: 10, borderRadius: 10, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+                <FileSpreadsheet size={22} />
               </div>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--tprm-text-primary)' }}>
-                  Original Evidence Document
-                </h4>
-                <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)' }}>
-                  Immutable Source • Permission Governed
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  4. Entity Findings Matrix
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  CSV Spreadsheet &bull; Redaction Ledger
                 </span>
               </div>
+              <span className="badge badge-warning">CSV MATRIX</span>
             </div>
 
-            <p style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
-              The exact unmodified file uploaded by the user. Kept in isolated storage with separate integrity hashes.
+            <p style={{ fontSize: '0.8125rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
+              Tabular spreadsheet listing all classified PII categories, character offset spans, detector confidences, and replacement masking tokens for compliance logging.
             </p>
 
-            <button onClick={downloadOriginal} className="btn-secondary" style={{ marginTop: 'auto', justifyContent: 'center' }}>
-              <Download size={14} />
-              <span>Download Original Input</span>
-            </button>
-          </div>
-
-          {/* Card 3: Contract D JSON Audit Report */}
-          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-cyan-light)' }}>
-                <ScrollText size={20} color="var(--tprm-cyan)" />
-              </div>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--tprm-text-primary)' }}>
-                  Contract D Compliance Report (JSON)
-                </h4>
-                <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)' }}>
-                  Structured Audit Telemetry • Metadata-Only
-                </span>
-              </div>
+            <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+              <button
+                onClick={() => downloadReport('csv')}
+                className="btn-secondary"
+                style={{ width: '100%', justifyContent: 'center' }}
+                title="Download CSV entity findings matrix"
+              >
+                <Download size={15} />
+                <span>Download Findings Matrix (CSV)</span>
+              </button>
             </div>
-
-            <p style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
-              Structured machine-readable report containing stage timings, category counts, rule IDs, and release decisions.
-            </p>
-
-            <button onClick={() => downloadReport('json')} className="btn-secondary" style={{ marginTop: 'auto', justifyContent: 'center' }}>
-              <Download size={14} />
-              <span>Download Audit Report (JSON)</span>
-            </button>
-          </div>
-
-          {/* Card 4: CSV Findings Matrix */}
-          <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)' }}>
-                <FileSpreadsheet size={20} color="#f59e0b" />
-              </div>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--tprm-text-primary)' }}>
-                  Entity Findings Matrix (CSV)
-                </h4>
-                <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)' }}>
-                  Spreadsheet Format
-                </span>
-              </div>
-            </div>
-
-            <p style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5, margin: 0 }}>
-              Tabular spreadsheet containing all detected entity types, character offsets, detector confidences, and masking tokens.
-            </p>
-
-            <button onClick={() => downloadReport('csv')} className="btn-secondary" style={{ marginTop: 'auto', justifyContent: 'center' }}>
-              <Download size={14} />
-              <span>Download CSV Matrix</span>
-            </button>
           </div>
         </div>
       ) : (
-        <div className="optiv-card" style={{ textAlign: 'center', padding: 40, color: 'var(--tprm-text-muted)' }}>
-          No document processing runs available for download.
+        <div className="optiv-card" style={{ textAlign: 'center', padding: 48, color: 'var(--tprm-text-muted)' }}>
+          No document processing runs available for artifact download.
         </div>
       )}
     </div>

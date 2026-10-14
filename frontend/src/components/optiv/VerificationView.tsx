@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   CheckCircle2,
   ShieldAlert,
@@ -7,8 +7,12 @@ import {
   ExternalLink,
   Download,
   XCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { UserProfile, ProcessResponse } from '../../types';
+import { PageHeader } from './PageHeader';
+import { CopyButton } from './CopyButton';
 
 interface VerificationViewProps {
   currentUser?: UserProfile;
@@ -20,8 +24,17 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
   activeDocument,
   onNavigateToWorkspace,
 }) => {
-  const isPass = activeDocument?.verification_status === 'PASS';
-  const isBlocked = !activeDocument?.release_allowed;
+  const [expandedChecks, setExpandedChecks] = useState<Record<string, boolean>>({});
+
+  const toggleCheck = (id: string) => {
+    setExpandedChecks((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const vStatus = activeDocument?.verification_status || 'NOT_RUN';
+  const isPass = vStatus === 'PASS';
+  const isFail = vStatus === 'FAIL';
+  const isIncomplete = !activeDocument || (!isPass && !isFail);
+  const releaseAuthorized = activeDocument?.release_allowed === true;
 
   // Calculate structure score approximation if text is available
   const origLen = activeDocument?.char_count || 1;
@@ -30,52 +43,70 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
   const structurePercent = (parseFloat(structureRatio) * 100).toFixed(1);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Active Document Context Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Unified Page Header */}
+      <PageHeader
+        title="Post-Redaction Verification & Release Gate"
+        description="Autonomous dual-pass verification engine, zero-residual PII re-scans, structural retention invariant validation, and fail-closed release controls."
+        actions={
+          <button
+            onClick={onNavigateToWorkspace}
+            className="btn-secondary"
+            title="Open Document Comparison Workspace"
+          >
+            <span>Open Document Workspace</span>
+            <ExternalLink size={14} />
+          </button>
+        }
+      />
+
+      {/* Top Document Summary Banner */}
       <div className="optiv-doc-banner">
         <div className="optiv-doc-banner-info">
           <div
             className="optiv-doc-icon-wrap"
             style={{
-              backgroundColor: isPass ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-              color: isPass ? 'var(--tprm-emerald)' : 'var(--tprm-rose)',
+              backgroundColor: isPass ? 'var(--tprm-emerald-light)' : isFail ? 'rgba(239, 68, 68, 0.15)' : 'var(--tprm-surface-subtle)',
+              color: isPass ? 'var(--tprm-emerald)' : isFail ? 'var(--tprm-rose)' : 'var(--tprm-text-muted)',
             }}
           >
-            {isPass ? <CheckCircle2 size={22} /> : <ShieldAlert size={22} />}
+            {isPass ? <CheckCircle2 size={22} /> : isFail ? <XCircle size={22} /> : <ShieldAlert size={22} />}
           </div>
           <div className="optiv-doc-meta">
             <div className="optiv-doc-title-row">
               <span className="optiv-doc-title">
-                {activeDocument
-                  ? `Stage 7 Verification Telemetry: ${activeDocument.document_id ? activeDocument.document_id.slice(0, 18) : 'Doc'}...`
-                  : 'Stage 7: Independent Post-Redaction Verification Plane'}
+                {activeDocument ? `Document: ${activeDocument.document_id}` : 'No Active Document Loaded'}
               </span>
+              {activeDocument?.document_id && <CopyButton text={activeDocument.document_id} />}
               {activeDocument && (
-                <span className={`badge ${activeDocument.release_allowed ? 'badge-success' : 'badge-danger'}`}>
-                  {activeDocument.release_allowed ? 'GATE: RELEASE AUTHORIZED' : 'GATE: FAIL-CLOSED BLOCKED'}
+                <span className={`badge ${releaseAuthorized ? 'badge-success' : 'badge-danger'}`}>
+                  {releaseAuthorized ? 'RELEASE: AUTHORIZED' : 'RELEASE: BLOCKED'}
                 </span>
               )}
             </div>
             <div className="optiv-doc-stats-row">
               <span className="optiv-doc-stat-item">
-                <span>Verification Status:</span>
+                <span>Verification Verdict:</span>
                 <span
                   className="optiv-doc-stat-val"
-                  style={{ color: isPass ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}
+                  style={{
+                    color: isPass ? 'var(--tprm-emerald)' : isFail ? 'var(--tprm-rose)' : 'var(--tprm-amber)',
+                    fontWeight: 700,
+                  }}
                 >
-                  {activeDocument?.verification_status || 'IDLE'}
+                  {isPass ? 'VERIFICATION PASS' : isFail ? 'VERIFICATION FAIL' : 'VERIFICATION INCOMPLETE'}
                 </span>
               </span>
               <span>•</span>
               <span className="optiv-doc-stat-item">
                 <span>Format:</span>
                 <span className="optiv-doc-stat-val">
-                  {activeDocument?.source_type?.toUpperCase() || 'DOCUMENT'}
+                  {activeDocument?.source_type?.toUpperCase() || 'N/A'}
                 </span>
               </span>
               <span>•</span>
               <span className="optiv-doc-stat-item">
-                <span>Structure Preserved:</span>
+                <span>Structural Context Retained:</span>
                 <span className="optiv-doc-stat-val">
                   {activeDocument ? `${structurePercent}%` : 'N/A'}
                 </span>
@@ -84,33 +115,22 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {activeDocument?.release_allowed && (
-            <button
-              onClick={() => window.open(`/api/artifact/${activeDocument.document_id}`, '_blank')}
-              className="btn-primary"
-              style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-            >
-              <Download size={14} />
-              <span>Download Verified Output</span>
-            </button>
-          )}
-
+        {releaseAuthorized && (
           <button
-            onClick={onNavigateToWorkspace}
-            className="optiv-btn-header"
-            style={{ height: 36, display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => window.open(`/api/artifact/${activeDocument!.document_id}`, '_blank')}
+            className="btn-primary"
+            title="Download verified sanitized document artifact"
           >
-            <ExternalLink size={14} />
-            <span>Open Document Workspace</span>
+            <Download size={15} />
+            <span>Download Verified Output</span>
           </button>
-        </div>
+        )}
       </div>
 
-      {/* 3 Pillars of Independent Verification Evaluated for Given Document */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-        {/* Pillar 1: Residual Leakage Re-Scan */}
-        <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* 3 Verification Checks Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+        {/* Check 1: Secondary Residual Leakage Sweep */}
+        <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div
@@ -118,71 +138,88 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
                   padding: 8,
                   borderRadius: 8,
                   backgroundColor: isPass ? 'var(--tprm-emerald-light)' : 'rgba(239, 68, 68, 0.15)',
+                  color: isPass ? 'var(--tprm-emerald)' : 'var(--tprm-rose)',
                 }}
               >
-                <ShieldAlert size={20} color={isPass ? 'var(--tprm-emerald)' : '#ef4444'} />
+                <ShieldAlert size={20} />
               </div>
               <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--tprm-text-primary)' }}>
-                  1. Zero Residual Leakage Re-Scan
-                </h4>
-                <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)' }}>
-                  Autonomous Secondary Scanner
+                <h3 style={{ margin: 0, fontSize: '0.975rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  1. Residual Leakage Re-Scan
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  Secondary Independent Sweep
                 </span>
               </div>
             </div>
 
-            <span className={`badge ${isPass ? 'badge-success' : 'badge-danger'}`}>
-              {isPass ? 'PASS' : 'FAIL'}
+            <span className={`badge ${isPass ? 'badge-success' : isFail ? 'badge-danger' : 'badge-warning'}`}>
+              {isPass ? 'PASS' : isFail ? 'FAIL' : 'PENDING'}
             </span>
           </div>
 
-          <div
-            style={{
-              padding: 10,
-              borderRadius: 6,
-              backgroundColor: 'var(--tprm-surface-subtle)',
-              fontSize: '0.8rem',
-              lineHeight: 1.5,
-            }}
-          >
+          <div style={{ padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--tprm-surface-subtle)', border: '1px solid var(--tprm-border)', fontSize: '0.8rem', lineHeight: 1.5 }}>
             {activeDocument ? (
               isPass ? (
                 <div style={{ color: 'var(--tprm-emerald)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
                   <CheckCircle2 size={16} />
-                  <span>0 residual findings in output text or metadata.</span>
+                  <span>0 residual unmasked entities detected in sanitized text.</span>
                 </div>
               ) : (
                 <div style={{ color: 'var(--tprm-rose)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
                   <XCircle size={16} />
-                  <span>Residual findings detected during secondary re-scan!</span>
+                  <span>Residual sensitive findings detected by secondary scanner!</span>
                 </div>
               )
             ) : (
-              <span style={{ color: 'var(--tprm-text-muted)' }}>No document loaded. Run a pipeline in Document Workspace.</span>
+              <span style={{ color: 'var(--tprm-text-muted)' }}>No document loaded. Execute a pipeline in the Workspace.</span>
             )}
           </div>
 
-          <ul style={{ fontSize: '0.75rem', color: 'var(--tprm-text-secondary)', paddingLeft: 16, margin: 0, lineHeight: 1.6 }}>
-            <li><strong>Known Value Search:</strong> Verifies all {activeDocument?.entities.length ?? 0} sensitive spans are eliminated.</li>
-            <li><strong>Independent Pattern Scanner:</strong> Autonomous regex sweep for SSN, email, phone, and card tokens.</li>
-            <li><strong>Policy Rule:</strong> Zero tolerance; a single residual discovery triggers immediate fail-closed gate block.</li>
-          </ul>
+          <div style={{ marginTop: 'auto', paddingTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => toggleCheck('check1')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--tprm-indigo)',
+                cursor: 'pointer',
+              }}
+            >
+              {expandedChecks['check1'] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              <span>{expandedChecks['check1'] ? 'Hide Verification Mechanics' : 'View Verification Mechanics'}</span>
+            </button>
+
+            {expandedChecks['check1'] && (
+              <ul style={{ fontSize: '0.75rem', color: 'var(--tprm-text-secondary)', paddingLeft: 16, margin: '8px 0 0 0', lineHeight: 1.6 }}>
+                <li><strong>Known-Span Search:</strong> Confirms all original sensitive offsets were replaced.</li>
+                <li><strong>Regex Sweeper:</strong> Independent pattern verification for SSN, email, phone, and cards.</li>
+                <li><strong>Zero Tolerance:</strong> A single residual entity blocks release immediately.</li>
+              </ul>
+            )}
+          </div>
         </div>
 
-        {/* Pillar 2: Structure Retention Scoring */}
-        <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Check 2: Structure Retention Invariant */}
+        <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-cyan-light)' }}>
-                <FileCheck size={20} color="var(--tprm-cyan)" />
+              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-cyan-light)', color: 'var(--tprm-cyan)' }}>
+                <FileCheck size={20} />
               </div>
               <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--tprm-text-primary)' }}>
-                  2. Structure Retention Scoring (&gt;= 80%)
-                </h4>
-                <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)' }}>
-                  Context &amp; Layout Preservation
+                <h3 style={{ margin: 0, fontSize: '0.975rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  2. Structure Retention Scoring
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  Layout & Context Invariant (≥ 80%)
                 </span>
               </div>
             </div>
@@ -192,19 +229,11 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
             </span>
           </div>
 
-          <div
-            style={{
-              padding: 10,
-              borderRadius: 6,
-              backgroundColor: 'var(--tprm-surface-subtle)',
-              fontSize: '0.8rem',
-              lineHeight: 1.5,
-            }}
-          >
+          <div style={{ padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--tprm-surface-subtle)', border: '1px solid var(--tprm-border)', fontSize: '0.8rem', lineHeight: 1.5 }}>
             {activeDocument ? (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)' }}>Retained Character Ratio:</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--tprm-text-muted)' }}>Retained Non-Sensitive Context:</span>
                   <span style={{ fontWeight: 700, color: 'var(--tprm-text-primary)' }}>{structurePercent}%</span>
                 </div>
                 <div style={{ width: '100%', height: 6, backgroundColor: 'var(--tprm-border)', borderRadius: 3, overflow: 'hidden' }}>
@@ -218,109 +247,173 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
                 </div>
               </div>
             ) : (
-              <span style={{ color: 'var(--tprm-text-muted)' }}>Awaiting document execution.</span>
+              <span style={{ color: 'var(--tprm-text-muted)' }}>Awaiting document processing.</span>
             )}
           </div>
 
-          <ul style={{ fontSize: '0.75rem', color: 'var(--tprm-text-secondary)', paddingLeft: 16, margin: 0, lineHeight: 1.6 }}>
-            <li><strong>Syntactic Integrity:</strong> Headings, paragraphs, and list enumerations are preserved.</li>
-            <li><strong>AI Audit Readability:</strong> Ensures downstream LLM or analyst can comprehend non-sensitive facts.</li>
-            <li><strong>Threshold Enforcement:</strong> Enforces &gt;= 80% structure retention specification.</li>
-          </ul>
+          <div style={{ marginTop: 'auto', paddingTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => toggleCheck('check2')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--tprm-indigo)',
+                cursor: 'pointer',
+              }}
+            >
+              {expandedChecks['check2'] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              <span>{expandedChecks['check2'] ? 'Hide Invariant Details' : 'View Invariant Details'}</span>
+            </button>
+
+            {expandedChecks['check2'] && (
+              <ul style={{ fontSize: '0.75rem', color: 'var(--tprm-text-secondary)', paddingLeft: 16, margin: '8px 0 0 0', lineHeight: 1.6 }}>
+                <li><strong>Syntactic Integrity:</strong> Paragraphs, tables, and sentence structures remain legible.</li>
+                <li><strong>LLM Utility:</strong> Ensures downstream AI systems receive semantic document context.</li>
+                <li><strong>Threshold Enforcement:</strong> Enforces minimum 80% non-sensitive character preservation.</li>
+              </ul>
+            )}
+          </div>
         </div>
 
-        {/* Pillar 3: Format Non-Reversibility */}
-        <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Check 3: Format Non-Reversibility */}
+        <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-indigo-light)' }}>
-                <Lock size={20} color="var(--tprm-indigo)" />
+              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-indigo-light)', color: 'var(--tprm-indigo)' }}>
+                <Lock size={20} />
               </div>
               <div>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--tprm-text-primary)' }}>
-                  3. Non-Reversibility &amp; Content Scrub
-                </h4>
-                <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)' }}>
-                  Format-Native Sanitization
+                <h3 style={{ margin: 0, fontSize: '0.975rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  3. Format Non-Reversibility
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  Underlying Glyph & Metadata Scrub
                 </span>
               </div>
             </div>
 
-            <span className="badge badge-success">CERTIFIED</span>
+            <span className="badge badge-generic">
+              {activeDocument ? activeDocument.source_type?.toUpperCase() : 'FORMAT'}
+            </span>
           </div>
 
-          <div
-            style={{
-              padding: 10,
-              borderRadius: 6,
-              backgroundColor: 'var(--tprm-surface-subtle)',
-              fontSize: '0.8rem',
-              lineHeight: 1.5,
-              color: 'var(--tprm-text-secondary)',
-            }}
-          >
+          <div style={{ padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--tprm-surface-subtle)', border: '1px solid var(--tprm-border)', fontSize: '0.8rem', lineHeight: 1.5 }}>
             {activeDocument ? (
-              <span>
-                Format-native <strong>{activeDocument.source_type?.toUpperCase()}</strong> sanitizer scrubbed underlying glyphs; irreversible token replacement.
+              <span style={{ color: 'var(--tprm-text-secondary)' }}>
+                Format sanitizer removed underlying text glyphs. Replacement tokens cannot be reversed without an authorized key.
               </span>
             ) : (
-              <span>Awaiting document execution.</span>
+              <span style={{ color: 'var(--tprm-text-muted)' }}>Awaiting document processing.</span>
             )}
           </div>
 
-          <ul style={{ fontSize: '0.75rem', color: 'var(--tprm-text-secondary)', paddingLeft: 16, margin: 0, lineHeight: 1.6 }}>
-            <li><strong>No Hidden Layers:</strong> Vector text streams permanently pruned; no floating black boxes.</li>
-            <li><strong>Cryptographic Salt:</strong> Medical/HIPAA data hashed with tenant-isolated salt.</li>
-            <li><strong>Metadata Sanitized:</strong> PDF/DOCX author, revision, and tool metadata scrubbed.</li>
-          </ul>
+          <div style={{ marginTop: 'auto', paddingTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => toggleCheck('check3')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--tprm-indigo)',
+                cursor: 'pointer',
+              }}
+            >
+              {expandedChecks['check3'] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              <span>{expandedChecks['check3'] ? 'Hide Scrubbing Specifications' : 'View Scrubbing Specifications'}</span>
+            </button>
+
+            {expandedChecks['check3'] && (
+              <ul style={{ fontSize: '0.75rem', color: 'var(--tprm-text-secondary)', paddingLeft: 16, margin: '8px 0 0 0', lineHeight: 1.6 }}>
+                <li><strong>No Pruning Artifacts:</strong> PDF/DOCX streams scrubbed; no invisible overlay boxes.</li>
+                <li><strong>Metadata Sanitization:</strong> Creator, revision stamps, and author identifiers pruned.</li>
+                <li><strong>Tenant Isolation:</strong> Masking salts are segregated per enterprise customer.</li>
+              </ul>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Dual-Key Release Gate Decision Card */}
+      {/* Release Decision & Gate Enforcement Panel */}
       <div
         className="optiv-card"
         style={{
-          borderLeft: `4px solid ${!isBlocked ? 'var(--tprm-emerald)' : 'var(--tprm-rose)'}`,
-          backgroundColor: 'var(--tprm-surface)',
+          borderLeft: `5px solid ${releaseAuthorized ? 'var(--tprm-emerald)' : isFail ? 'var(--tprm-rose)' : '#f59e0b'}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 16,
+          padding: 24,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-          <div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '1.05rem', color: 'var(--tprm-text-primary)' }}>
-              Dual-Key Release Authorization Verdict
+        <div style={{ maxWidth: 760 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+              Release Authorization & Governance Gate Status
             </h3>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--tprm-text-muted)' }}>
-              Release of document artifacts requires: Key 1 (Automated 3-Pillar Verification PASS) + Key 2 (Compliance Policy Release Authorization).
-            </p>
+            <span
+              className={`badge ${
+                releaseAuthorized
+                  ? 'badge-success'
+                  : isFail
+                  ? 'badge-danger'
+                  : isIncomplete
+                  ? 'badge-warning'
+                  : 'badge-generic'
+              }`}
+            >
+              {releaseAuthorized
+                ? 'RELEASE: AUTHORIZED'
+                : isFail
+                ? 'VERIFICATION FAIL — BLOCKED'
+                : isIncomplete
+                ? 'VERIFICATION INCOMPLETE'
+                : 'RELEASE WITHHELD'}
+            </span>
           </div>
+          <p style={{ margin: 0, fontSize: '0.825rem', color: 'var(--tprm-text-muted)', lineHeight: 1.5 }}>
+            {releaseAuthorized
+              ? 'All three independent verification invariants passed without residual PII. Document is authorized for downstream AI pipeline ingestion.'
+              : isFail
+              ? 'Independent re-scan discovered residual unmasked entities or structural violations. The fail-closed gate blocks artifact download (HTTP 403).'
+              : 'Document processing run has not yet completed verification checks. Release remains withheld by default.'}
+          </p>
+        </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)' }}>Gate Authorization:</div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: !isBlocked ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>
-                {!isBlocked ? 'AUTHORIZED FOR RELEASE' : 'FAIL-CLOSED / WITHHELD'}
-              </div>
-            </div>
-
-            {activeDocument?.release_allowed ? (
-              <button
-                onClick={() => window.open(`/api/artifact/${activeDocument.document_id}`, '_blank')}
-                className="btn-primary"
-                style={{ fontSize: '0.8rem', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Download size={14} />
-                <span>Download Artifact</span>
-              </button>
-            ) : (
-              <button
-                onClick={onNavigateToWorkspace}
-                className="btn-secondary"
-                style={{ fontSize: '0.8rem', padding: '8px 16px', color: 'var(--tprm-rose)' }}
-              >
-                Inspect Gate Block In Workspace
-              </button>
-            )}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {releaseAuthorized ? (
+            <button
+              onClick={() => window.open(`/api/artifact/${activeDocument!.document_id}`, '_blank')}
+              className="btn-primary"
+              title="Download verified sanitized artifact"
+            >
+              <Download size={15} />
+              <span>Download Verified Artifact</span>
+            </button>
+          ) : (
+            <button
+              onClick={onNavigateToWorkspace}
+              className="btn-secondary"
+              style={{ color: 'var(--tprm-rose)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+              title="Inspect barriers in Document Workspace"
+            >
+              <ExternalLink size={14} />
+              <span>Inspect Gate Barriers in Workspace</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
