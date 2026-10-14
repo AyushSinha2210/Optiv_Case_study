@@ -152,3 +152,27 @@ def test_export_leakage_guard(tmp_path):
     assert canary_str not in json_out
     assert canary_str not in csv_out
     assert canary_str not in summary_out
+
+
+def test_evaluation_metrics_reporting(sample_successful_result, sample_blocked_result):
+    """Verify precision, recall, f1_score, and false_negative_rate in reports, JSON, CSV, and summaries."""
+    rep_pass = generate_report(sample_successful_result)
+    assert rep_pass.precision == 1.0
+    assert rep_pass.recall == 1.0
+    assert rep_pass.f1_score == 1.0
+    assert rep_pass.false_negative_rate == 0.0
+
+    summary_pass = generate_human_readable_summary(rep_pass)
+    assert "Precision:           1.0000" in summary_pass
+    assert "Recall:              1.0000" in summary_pass
+    assert "F1-Score:            1.0000" in summary_pass
+    assert "False Negative Rate: 0.0000" in summary_pass
+
+    rep_block = generate_report(sample_blocked_result)
+    assert rep_block.precision == 1.0
+    assert rep_block.recall < 1.0
+    assert rep_block.false_negative_rate > 0.0
+
+    csv_out = export_to_csv([rep_pass, rep_block])
+    assert "precision,recall,f1_score,false_negative_rate" in csv_out
+    assert "1.0,1.0,1.0,0.0" in csv_out

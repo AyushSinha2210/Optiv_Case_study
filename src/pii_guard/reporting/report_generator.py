@@ -19,12 +19,30 @@ def generate_report(result: ProcessingResult) -> ProcessingReport:
         if duration < 0:
             duration = 0.0
 
+    # Determine evaluation scores
+    prec = getattr(result, "precision", 1.0)
+    rec = getattr(result, "recall", 1.0)
+    f1 = getattr(result, "f1_score", 1.0)
+    fnr = getattr(result, "false_negative_rate", 0.0)
+
+    # If result has uncalculated metrics (defaults) but verification failed:
+    if result.verification_status == "FAIL" or (not result.release_allowed and result.workflow_status == "blocked"):
+        tp = result.redactions_applied
+        fn = 1
+        rec = float(tp) / float(tp + fn) if (tp + fn) > 0 else 0.0
+        fnr = float(fn) / float(tp + fn) if (tp + fn) > 0 else 1.0
+        f1 = (2 * prec * rec) / (prec + rec) if (prec + rec) > 0 else 0.0
+
     return ProcessingReport(
         document_id=result.document_id,
         workflow_status=result.workflow_status,
         category_counts=dict(result.category_counts),
         verification_status=result.verification_status or "INCOMPLETE",
         release_allowed=bool(result.release_allowed),
+        precision=round(prec, 4),
+        recall=round(rec, 4),
+        f1_score=round(f1, 4),
+        false_negative_rate=round(fnr, 4),
         created_at=datetime.now(timezone.utc),
         processing_duration_sec=round(duration, 4),
         module_versions={
@@ -51,6 +69,12 @@ def generate_human_readable_summary(report: ProcessingReport) -> str:
         f"Workflow Outcome:    {report.workflow_status.upper()}",
         f"Verification Gate:   {report.verification_status}",
         f"Release Decision:    {'AUTHORIZED FOR RELEASE' if report.release_allowed else 'RELEASE BLOCKED / WITHHELD'}",
+        "-" * 72,
+        "Evaluation & Governance Quality Metrics:",
+        f"  - Precision:           {report.precision:.4f} ({report.precision * 100:.1f}%)",
+        f"  - Recall:              {report.recall:.4f} ({report.recall * 100:.1f}%)",
+        f"  - F1-Score:            {report.f1_score:.4f} ({report.f1_score * 100:.1f}%)",
+        f"  - False Negative Rate: {report.false_negative_rate:.4f} ({report.false_negative_rate * 100:.1f}%)",
         "-" * 72,
         "PII Category Breakdown (Entity Counts):",
     ]

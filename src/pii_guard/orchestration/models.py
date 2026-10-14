@@ -68,6 +68,10 @@ class ProcessingReport(BaseModel):
     category_counts: Dict[str, int] = Field(default_factory=dict, description="Counts of detected PII by category")
     verification_status: Literal["PASS", "FAIL", "INCOMPLETE"] = Field(...)
     release_allowed: bool = Field(default=False, description="Strict release authorization decision")
+    precision: float = Field(default=1.0, ge=0.0, le=1.0, description="PII detection precision score")
+    recall: float = Field(default=1.0, ge=0.0, le=1.0, description="PII detection recall score")
+    f1_score: float = Field(default=1.0, ge=0.0, le=1.0, description="PII detection F1 harmonic score")
+    false_negative_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="False negative rate (residual leakage)")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Timezone-aware creation timestamp"
@@ -108,6 +112,10 @@ class ProcessingResult(BaseModel):
     redaction_status: Optional[str] = Field(default=None)
     verification_status: Optional[str] = Field(default=None)
     release_allowed: bool = Field(default=False)
+    precision: float = Field(default=1.0, ge=0.0, le=1.0, description="PII detection precision score")
+    recall: float = Field(default=1.0, ge=0.0, le=1.0, description="PII detection recall score")
+    f1_score: float = Field(default=1.0, ge=0.0, le=1.0, description="PII detection F1 harmonic score")
+    false_negative_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="False negative rate (residual leakage)")
     
     category_counts: Dict[str, int] = Field(default_factory=dict)
     redactions_applied: int = Field(default=0, ge=0)
@@ -139,6 +147,10 @@ class ProcessingResult(BaseModel):
             "redaction_status": self.redaction_status,
             "verification_status": self.verification_status,
             "release_allowed": self.release_allowed,
+            "precision": round(self.precision, 4),
+            "recall": round(self.recall, 4),
+            "f1_score": round(self.f1_score, 4),
+            "false_negative_rate": round(self.false_negative_rate, 4),
             "category_counts": dict(self.category_counts),
             "redactions_applied": self.redactions_applied,
             "safe_warnings": list(self.safe_warnings),

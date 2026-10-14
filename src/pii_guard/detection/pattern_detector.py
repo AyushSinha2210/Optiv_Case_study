@@ -140,10 +140,11 @@ def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
     candidates: list[Candidate] = []
     discovered_names: set[str] = set()
 
-    # 1. Explicitly labeled names: Name: Ayush Sinha, Name: ayush sinha, Candidate Name: ..., etc.
+    # 1. Explicitly labeled names: Name: Ayush Sinha, Name: alex example, Candidate Name: ..., etc.
     labeled_pattern = re.compile(
         r"(?i)\b(?P<prefix>candidate[ \t]*name|applicant[ \t]*name|full[ \t]*name|student[ \t]*name|"
-        r"employee[ \t]*name|client[ \t]*name|customer[ \t]*name|contact[ \t]*person|author[ \t]*name|author|name)"
+        r"employee[ \t]*name|client[ \t]*name|customer[ \t]*name|contact[ \t]*person|author[ \t]*name|"
+        r"candidate|applicant|author|contact|name)"
         r"[ \t]*[:#-][ \t]*"
         r"(?P<val>[a-zA-Z'.-]+(?:[ \t]+[a-zA-Z'.-]+){1,3})"
         r"(?=\b|[\r\n,;|])"
@@ -203,7 +204,8 @@ def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
                 if non_empty_count <= 3 and not found_header_name:
                     line_words = {w.lower().strip(".,'") for w in stripped.split()}
                     matches_email = bool(email_tokens and line_words.intersection(email_tokens))
-                    if _is_valid_person_name(stripped, allow_lowercase=matches_email):
+                    allow_lc = matches_email or (non_empty_count == 1 and len(line_words) in (2, 3))
+                    if _is_valid_person_name(stripped, allow_lowercase=allow_lc):
                         line_start = offset + line.find(stripped)
                         line_end = line_start + len(stripped)
                         candidates.append(

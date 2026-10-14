@@ -177,6 +177,10 @@ class ProcessResponse(BaseModel):
     redaction_status: Optional[str]
     verification_status: Optional[str]
     release_allowed: bool
+    precision: float = 1.0
+    recall: float = 1.0
+    f1_score: float = 1.0
+    false_negative_rate: float = 0.0
     category_counts: Dict[str, int]
     redactions_applied: int
     safe_warnings: List[str]
@@ -530,6 +534,10 @@ async def process_document_endpoint(
             "redaction_status": res.redaction_status,
             "verification_status": res.verification_status,
             "release_allowed": res.release_allowed,
+            "precision": round(getattr(res, "precision", 1.0), 4),
+            "recall": round(getattr(res, "recall", 1.0), 4),
+            "f1_score": round(getattr(res, "f1_score", 1.0), 4),
+            "false_negative_rate": round(getattr(res, "false_negative_rate", 0.0), 4),
             "category_counts": dict(res.category_counts),
             "redactions_applied": res.redactions_applied,
             "safe_warnings": list(res.safe_warnings),

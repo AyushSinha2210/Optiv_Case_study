@@ -340,6 +340,10 @@ export interface ProcessResponse {
   redaction_status: string | null;
   verification_status: string | null;
   release_allowed: boolean;
+  precision?: number;
+  recall?: number;
+  f1_score?: number;
+  false_negative_rate?: number;
   category_counts: Record<string, number>;
   redactions_applied: number;
   safe_warnings: string[];

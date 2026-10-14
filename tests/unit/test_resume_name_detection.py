@@ -120,6 +120,64 @@ class TestResumeCandidateNameDetection:
         res5 = detect_pii(_doc("Alex Example\nSoftware Engineer\nalex@example.com\n+1 (555) 0199"))
         assert any(e.type == "PERSON" and "Alex Example" in "Alex Example\nSoftware Engineer\nalex@example.com\n+1 (555) 0199"[e.start:e.end] for e in res5.entities)
 
+    def test_alex_example_name_detection_variations(self):
+        """Validate Alex Example across Title Case, all-lowercase, mixed-case, and recurring mentions."""
+        # A. Title Case in header and recurring body mention
+        text1 = (
+            "Alex Example\n"
+            "Cloud Security Architect\n"
+            "Email: alex.example@company.com\n"
+            "Phone: (555) 123-4567\n\n"
+            "SUMMARY\n"
+            "Alex Example is a certified lead architect who engineered PII safeguards."
+        )
+        res1 = detect_pii(_doc(text1))
+        matched1 = [text1[e.start:e.end] for e in res1.entities if e.type == "PERSON"]
+        assert "Alex Example" in matched1
+        assert matched1.count("Alex Example") == 2
+
+        # B. All-lowercase: 'alex example'
+        text2 = (
+            "alex example\n"
+            "Software Engineer\n"
+            "alex.example@gmail.com\n"
+            "+1-555-987-6543\n\n"
+            "Projects by alex example in privacy governance."
+        )
+        res2 = detect_pii(_doc(text2))
+        matched2 = [text2[e.start:e.end].lower() for e in res2.entities if e.type == "PERSON"]
+        assert "alex example" in matched2
+
+        # C. Mixed case: 'Alex example'
+        text3 = (
+            "Alex example\n"
+            "Data Analyst\n"
+            "alex@example.org\n"
+            "+1 (555) 321-7654"
+        )
+        res3 = detect_pii(_doc(text3))
+        matched3 = [text3[e.start:e.end] for e in res3.entities if e.type == "PERSON"]
+        assert "Alex example" in matched3
+
+        # D. Labeled: 'Candidate: Alex Example' and 'Applicant: alex example'
+        text4 = (
+            "Candidate: Alex Example\n"
+            "Applicant: alex example\n"
+            "Contact Person: Alex Example"
+        )
+        res4 = detect_pii(_doc(text4))
+        matched4 = [text4[e.start:e.end] for e in res4.entities if e.type == "PERSON"]
+        assert "Alex Example" in matched4
+        assert "alex example" in matched4
+
+        # E. Redaction and Verification of Alex Example
+        red = apply_redactions(text1, [e.model_dump() for e in res1.entities])
+        assert "Alex Example" not in red.text
+        assert "[REDACTED_PERSON]" in red.text
+        ver = verify_redacted_text(text1, red.text, [e.model_dump() for e in res1.entities])
+        assert ver["status"] == "PASS"
+        assert ver["findings"] == []
+
     def test_technical_metadata_names_are_not_flagged(self):
         """Technical metadata keys (file name, db name, username) must not be flagged."""
         text = (

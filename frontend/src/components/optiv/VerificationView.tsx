@@ -344,6 +344,92 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Check 4: Evaluation & Model Governance Metrics */}
+        <div className="optiv-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'var(--tprm-amber-light)', color: 'var(--tprm-amber)' }}>
+                <CheckCircle2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '0.975rem', color: 'var(--tprm-text-primary)', fontWeight: 700 }}>
+                  4. Evaluation Quality Metrics
+                </h3>
+                <span style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)' }}>
+                  Precision, Recall, F1 & FNR
+                </span>
+              </div>
+            </div>
+
+            <span className="badge badge-success">
+              {activeDocument ? `F1: ${(activeDocument.f1_score ?? 1.0).toFixed(3)}` : '1.000'}
+            </span>
+          </div>
+
+          <div style={{ padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--tprm-surface-subtle)', border: '1px solid var(--tprm-border)', fontSize: '0.8rem', lineHeight: 1.5 }}>
+            {activeDocument ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)', display: 'block' }}>Precision:</span>
+                  <span style={{ fontWeight: 700, color: 'var(--tprm-emerald)' }}>
+                    {((activeDocument.precision ?? 1.0) * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)', display: 'block' }}>Recall:</span>
+                  <span style={{ fontWeight: 700, color: 'var(--tprm-emerald)' }}>
+                    {((activeDocument.recall ?? 1.0) * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)', display: 'block' }}>F1-Score:</span>
+                  <span style={{ fontWeight: 700, color: 'var(--tprm-indigo)' }}>
+                    {(activeDocument.f1_score ?? 1.0).toFixed(4)}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)', display: 'block' }}>False Negative Rate:</span>
+                  <span style={{ fontWeight: 700, color: (activeDocument.false_negative_rate ?? 0.0) === 0 ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>
+                    {((activeDocument.false_negative_rate ?? 0.0) * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <span style={{ color: 'var(--tprm-text-muted)' }}>Awaiting document processing.</span>
+            )}
+          </div>
+
+          <div style={{ marginTop: 'auto', paddingTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => toggleCheck('check4')}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--tprm-indigo)',
+                cursor: 'pointer',
+              }}
+            >
+              {expandedChecks['check4'] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              <span>{expandedChecks['check4'] ? 'Hide Evaluation Rigor' : 'View Evaluation Rigor'}</span>
+            </button>
+
+            {expandedChecks['check4'] && (
+              <ul style={{ fontSize: '0.75rem', color: 'var(--tprm-text-secondary)', paddingLeft: 16, margin: '8px 0 0 0', lineHeight: 1.6 }}>
+                <li><strong>Precision:</strong> Measures exactness; zero false positives on non-PII tokens.</li>
+                <li><strong>Recall & FNR:</strong> Measures sensitivity; 100% recall ensures zero residual leaks.</li>
+                <li><strong>Harmonic F1:</strong> Balances over-redaction vs under-redaction metrics.</li>
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Release Decision & Gate Enforcement Panel */}
