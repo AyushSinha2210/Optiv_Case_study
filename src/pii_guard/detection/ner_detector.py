@@ -40,6 +40,43 @@ def load_spacy_backend(model_name: str = "en_core_web_sm") -> Optional[NerBacken
     return backend
 
 
+def load_contextual_ner_backend() -> NerBackend:
+    """Return a fast, high-precision contextual person name detector without external dependencies."""
+    import re
+    from .pattern_detector import _is_valid_person_name
+
+    patterns = (
+        re.compile(r"(?i)\bprepared[ \t]+by[ \t]+([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})\b"),
+        re.compile(r"(?i)\bescalate[ \t]+to[ \t]+([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})\b"),
+        re.compile(r"(?i)\bcustomer[ \t]+([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})\b"),
+        re.compile(r"(?i)\bissued[ \t]+to[ \t]+([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})\b"),
+        re.compile(r"(?i)\bcontact[ \t]+([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})[ \t]+(?:at|on|via)\b"),
+        re.compile(r"\b([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})[ \t]+\((?:CAD-)?EMP-\d+\)"),
+    )
+
+    def backend(segment: str) -> list[tuple[str, int, int, float]]:
+        results: list[tuple[str, int, int, float]] = []
+        for pat in patterns:
+            for m in pat.finditer(segment):
+                name_val = m.group(1).strip()
+                if _is_valid_person_name(name_val):
+                    start = m.start(1)
+                    end = start + len(name_val)
+                    results.append(("PERSON", start, end, 0.85))
+        return results
+
+    return backend
+
+
+def get_default_ner_backend() -> Optional[NerBackend]:
+    """Return spaCy backend if available, otherwise return high-precision contextual NER backend."""
+    spacy_backend = load_spacy_backend()
+    if spacy_backend is not None:
+        return spacy_backend
+    return load_contextual_ner_backend()
+
+
+
 def _page_segments(text: str) -> Iterable[tuple[int, str]]:
     """Yield (absolute_offset, page_text) for each form-feed-separated page."""
     offset = 0

@@ -173,7 +173,9 @@ def process_document(
             detection_res = detector_fn(extracted_doc)
         else:
             from ..detection.detector import detect_pii
-            detection_res = detect_pii(extracted_doc)
+            from ..detection.ner_detector import get_default_ner_backend
+            detection_res = detect_pii(extracted_doc, ner_backend=get_default_ner_backend())
+
 
         t_det_sec = time.perf_counter() - t_det_start
 

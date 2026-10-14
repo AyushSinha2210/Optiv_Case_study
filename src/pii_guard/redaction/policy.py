@@ -7,6 +7,10 @@ from typing import Mapping
 DEFAULT_POLICY: Mapping[str, str] = MappingProxyType(
     {
         "PERSON": "[REDACTED_PERSON]",
+        "NAME": "[REDACTED_PERSON]",
+        "PERSON_NAME": "[REDACTED_PERSON]",
+        "CANDIDATE_NAME": "[REDACTED_PERSON]",
+        "FULL_NAME": "[REDACTED_PERSON]",
         "EMAIL": "[REDACTED_EMAIL]",
         "PHONE": "[REDACTED_PHONE]",
         "ADDRESS": "[REDACTED_ADDRESS]",
@@ -16,6 +20,7 @@ DEFAULT_POLICY: Mapping[str, str] = MappingProxyType(
         "EMPLOYEE_ID": "[REDACTED_EMPLOYEE_ID]",
     }
 )
+
 
 
 class PolicyError(ValueError):

@@ -105,9 +105,15 @@ class PIIDetector:
         self,
         confidence_threshold: float = 0.5,
         ner_backend: Optional[NerBackend] = None,
+        use_default_ner: bool = True,
     ) -> None:
         self.confidence_threshold = confidence_threshold
-        self.ner_backend = ner_backend
+        if ner_backend is None and use_default_ner:
+            from .ner_detector import get_default_ner_backend
+            self.ner_backend = get_default_ner_backend()
+        else:
+            self.ner_backend = ner_backend
+
 
     def detect(self, doc: "ExtractedDocument", options: Optional[dict[str, Any]] = None) -> DetectionResult:
         """Scan ExtractedDocument.text and return Contract B DetectionResult."""

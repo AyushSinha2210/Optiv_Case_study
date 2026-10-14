@@ -221,8 +221,9 @@ async def process_document_endpoint(
         try:
             cfg = IngestionConfig.from_env()
             ext_doc = extract_document(str(temp_path), config=cfg)
-            extracted_text = ext_doc.text
-            det_res = detect_pii(ext_doc)
+            from src.pii_guard.detection.ner_detector import get_default_ner_backend
+            det_res = detect_pii(ext_doc, ner_backend=get_default_ner_backend())
+
             for ent in det_res.entities:
                 val = extracted_text[ent.start:ent.end] if ent.end <= len(extracted_text) else ""
                 masked = DEFAULT_POLICY.get(ent.type.upper(), f"[REDACTED_{ent.type}]")

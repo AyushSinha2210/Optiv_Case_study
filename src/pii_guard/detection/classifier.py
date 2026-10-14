@@ -20,8 +20,13 @@ PRECEDENCE: dict[str, int] = {
     "IP_ADDRESS": 3,
     "PHONE": 2,
     "PERSON": 1,
+    "NAME": 1,
+    "PERSON_NAME": 1,
+    "CANDIDATE_NAME": 1,
+    "FULL_NAME": 1,
     "ADDRESS": 1,
 }
+
 
 
 def resolve_overlaps(candidates: list[Candidate]) -> tuple[list[Candidate], int]:

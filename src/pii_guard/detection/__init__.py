@@ -9,7 +9,7 @@ Public API:
 """
 
 from .detector import PIIDetector, detect_pii
-from .ner_detector import load_spacy_backend
+from .ner_detector import get_default_ner_backend, load_contextual_ner_backend, load_spacy_backend
 from .schemas import (
     PII_TYPES,
     DetectedEntity,
@@ -22,9 +22,12 @@ __all__ = [
     "detect_pii",
     "PIIDetector",
     "load_spacy_backend",
+    "load_contextual_ner_backend",
+    "get_default_ner_backend",
     "DetectedEntity",
     "DetectionResult",
     "DetectionWarning",
     "DetectionInputError",
     "PII_TYPES",
 ]
+
