@@ -148,4 +148,5 @@ def redact_and_validate(
         verification_status=verification_status,
         release_allowed=bool(gate["release_allowed"]),
         findings=findings,
+        structure_score=round(structure_score, 4),
     )

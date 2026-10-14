@@ -324,6 +324,13 @@ export interface DetectedEntity {
   page?: number;
 }
 
+export interface VerificationFinding {
+  check: string;
+  entity_type?: string;
+  count?: number;
+  message?: string;
+}
+
 export interface ProcessResponse {
   document_id: string;
   workflow_status: "success" | "blocked" | "failed" | "incomplete";
@@ -353,6 +360,8 @@ export interface ProcessResponse {
   extracted_text: string | null;
   redacted_text: string | null;
   entities: DetectedEntity[];
+  verification_findings?: VerificationFinding[];
+  structure_score?: number;
 }
 
 export interface ScenarioFixture {

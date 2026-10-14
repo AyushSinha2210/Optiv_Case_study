@@ -329,6 +329,23 @@ def process_document(
             f1_val = (2 * p_val * r_val) / (p_val + r_val) if (p_val + r_val) > 0 else 0.0
             fnr_val = float(fn) / float(tp + fn) if (tp + fn) > 0 else 0.0
 
+        # Extract sanitized verification findings and structure score
+        findings_payload = []
+        for f in getattr(redaction_res, "findings", []):
+            if hasattr(f, "model_dump"):
+                findings_payload.append(f.model_dump(exclude_none=True))
+            elif isinstance(f, dict):
+                findings_payload.append(f)
+            else:
+                findings_payload.append({
+                    "check": getattr(f, "check", None) or getattr(f, "code", "UNKNOWN"),
+                    "entity_type": getattr(f, "entity_type", None) or getattr(f, "category", None),
+                    "count": getattr(f, "count", None),
+                    "message": getattr(f, "message", None),
+                })
+
+        struct_score = getattr(redaction_res, "structure_score", None)
+
         result = ProcessingResult(
             document_id=doc_id,
             workflow_status=workflow_status,
@@ -354,6 +371,8 @@ def process_document(
             safe_error=safe_err,
             safe_error_code=safe_err_code,
             artifact_ref=effective_artifact_ref,
+            verification_findings=findings_payload,
+            structure_score=struct_score,
         )
 
         # Generate report and audit references

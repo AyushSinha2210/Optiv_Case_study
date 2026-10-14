@@ -16,6 +16,7 @@ import {
   ArrowRightLeft,
   RefreshCw,
   Shield,
+  ExternalLink,
 } from 'lucide-react';
 import type {
   ProcessResponse,
@@ -31,6 +32,7 @@ interface DocumentWorkspaceViewProps {
   activeDocument?: ProcessResponse | null;
   onDocumentChange?: (doc: ProcessResponse) => void;
   onOpenAssistant: (documentId: string) => void;
+  onNavigateToVerification?: () => void;
   scenarios: ScenarioFixture[];
 }
 
@@ -41,6 +43,7 @@ export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
   activeDocument,
   onDocumentChange,
   onOpenAssistant,
+  onNavigateToVerification,
   scenarios,
 }) => {
   const [inputMode, setInputMode] = useState<'scenario' | 'upload'>('scenario');
@@ -498,6 +501,75 @@ export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
         </div>
       )}
 
+      {/* Release Gate Blocked & Fault Diagnostic Banner */}
+      {result && (result.workflow_status === 'blocked' || result.verification_status === 'FAIL') && (
+        <div
+          className="optiv-card"
+          style={{
+            borderLeft: '5px solid var(--tprm-rose)',
+            backgroundColor: 'rgba(239, 68, 68, 0.05)',
+            padding: '16px 20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, maxWidth: 840 }}>
+            <div
+              style={{
+                padding: 10,
+                borderRadius: 8,
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                color: 'var(--tprm-rose)',
+                marginTop: 2,
+                flexShrink: 0,
+              }}
+            >
+              <ShieldAlert size={22} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--tprm-rose)' }}>
+                  Release Gate Blocked — Post-Redaction Verification Failed
+                </h4>
+                <span className="badge badge-danger" style={{ fontSize: '0.675rem' }}>
+                  GATE FAIL-CLOSED
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--tprm-text-secondary)', lineHeight: 1.5 }}>
+                {result.safe_error || 'Independent verification sweeps detected residual sensitive data or structural degradation in sanitized output.'}
+              </p>
+              {result.verification_findings && result.verification_findings.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  <span style={{ fontSize: '0.725rem', fontWeight: 600, color: 'var(--tprm-text-muted)' }}>
+                    Failing Invariants & Offending Entities:
+                  </span>
+                  {result.verification_findings.map((f, i) => (
+                    <span key={i} className="badge badge-danger" style={{ fontSize: '0.7rem' }}>
+                      {f.check} {f.entity_type ? `(${f.entity_type})` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {onNavigateToVerification && (
+            <button
+              onClick={onNavigateToVerification}
+              className="btn-secondary"
+              style={{ color: 'var(--tprm-rose)', borderColor: 'rgba(239, 68, 68, 0.4)', fontSize: '0.8rem' }}
+              title="View full fault diagnostics and root causes in Verification View"
+            >
+              <span>Diagnose Fault in Verification Gate</span>
+              <ExternalLink size={13} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Dual-Pane Document Diff Viewer */}
       {result && (
         <div className="optiv-card" style={{ padding: '16px 20px' }}>
@@ -687,9 +759,28 @@ export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
                       <h4 style={{ color: 'var(--tprm-rose)', fontSize: '0.95rem', margin: '0 0 6px', fontWeight: 700 }}>
                         Sanitized Document Egress Withheld
                       </h4>
-                      <p style={{ fontSize: '0.775rem', color: 'var(--tprm-text-muted)', maxWidth: 380, margin: '0 auto', lineHeight: 1.5 }}>
+                      <p style={{ fontSize: '0.775rem', color: 'var(--tprm-text-muted)', maxWidth: 420, margin: '0 auto', lineHeight: 1.5 }}>
                         Independent verification status evaluates to <strong style={{ color: 'var(--tprm-rose)' }}>{result.verification_status || 'FAIL'}</strong>. Under the fail-closed barrier, unverified artifacts are permanently blocked from egress.
                       </p>
+                      {result.verification_findings && result.verification_findings.length > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                          {result.verification_findings.map((f, i) => (
+                            <span key={i} className="badge badge-danger" style={{ fontSize: '0.675rem' }}>
+                              {f.check}: {f.entity_type || 'PII'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {onNavigateToVerification && (
+                        <button
+                          onClick={onNavigateToVerification}
+                          className="btn-secondary"
+                          style={{ marginTop: 14, fontSize: '0.75rem', color: 'var(--tprm-rose)', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                        >
+                          <ShieldAlert size={14} />
+                          <span>View Root Cause & Fault Diagnostics</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

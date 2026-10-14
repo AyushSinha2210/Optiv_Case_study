@@ -57,6 +57,7 @@ class RedactionResult(BaseModel):
         default=False, description="Strict release permission flag"
     )
     findings: List[Any] = Field(default_factory=list, description="Safe findings")
+    structure_score: Optional[float] = Field(default=None, description="Structural retention score")
 
 
 class ProcessingReport(BaseModel):
@@ -127,6 +128,8 @@ class ProcessingResult(BaseModel):
     artifact_ref: Optional[str] = Field(default=None)
     audit_id: Optional[str] = Field(default=None)
     report_id: Optional[str] = Field(default=None)
+    verification_findings: List[Dict[str, Any]] = Field(default_factory=list, description="Sanitized verification fault findings")
+    structure_score: Optional[float] = Field(default=None, description="Structural retention score")
 
     def to_safe_dict(self) -> Dict[str, Any]:
         """Serialize exclusively safe fields for UI/API delivery.
@@ -159,4 +162,6 @@ class ProcessingResult(BaseModel):
             "artifact_ref": self.artifact_ref if self.release_allowed else None,
             "audit_id": self.audit_id,
             "report_id": self.report_id,
+            "verification_findings": list(self.verification_findings),
+            "structure_score": self.structure_score,
         }

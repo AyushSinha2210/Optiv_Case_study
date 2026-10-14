@@ -226,6 +226,7 @@ export const App: React.FC = () => {
                   activeDocument={activeDocument}
                   onDocumentChange={handleDocumentChange}
                   onOpenAssistant={(docId) => handleOpenAssistant(docId)}
+                  onNavigateToVerification={() => setOptivTab('verification')}
                   scenarios={scenarios}
                 />
               )}

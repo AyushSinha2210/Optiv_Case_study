@@ -13,6 +13,7 @@ class RedactionFinding(BaseModel):
     check: str
     entity_type: str | None = None
     count: int | None = Field(default=None, ge=0)
+    message: str | None = None
 
 
 class RedactionResult(BaseModel):
@@ -26,3 +27,4 @@ class RedactionResult(BaseModel):
     verification_status: Literal["PASS", "FAIL", "INCOMPLETE"]
     release_allowed: bool
     findings: list[RedactionFinding] = Field(default_factory=list)
+    structure_score: float | None = None

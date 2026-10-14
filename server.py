@@ -191,6 +191,8 @@ class ProcessResponse(BaseModel):
     extracted_text: Optional[str]
     redacted_text: Optional[str]
     entities: List[Dict[str, Any]]
+    verification_findings: List[Dict[str, Any]] = []
+    structure_score: Optional[float] = None
 
 
 class AssistantRequest(BaseModel):
@@ -548,6 +550,8 @@ async def process_document_endpoint(
             "extracted_text": safe_extracted_text,
             "redacted_text": redacted_text,
             "entities": safe_entities_data,
+            "verification_findings": getattr(res, "verification_findings", []),
+            "structure_score": getattr(res, "structure_score", None),
         }
 
         # Cache for immediate session
