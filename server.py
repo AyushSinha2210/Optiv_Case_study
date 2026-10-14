@@ -81,6 +81,7 @@ try:
     _db = TPRMSessionLocal()
     seed_tprm_database(_db)
     _db.close()
+
 except Exception as e:
     print(f"Database initialization warning: {e}")
 
@@ -211,6 +212,15 @@ def root_health_check():
         "status": "healthy",
         "service": "optiv-document-privacy-workspace",
         "version": "2.0.0",
+    }
+
+
+@app.get("/health")
+def root_health_check():
+    return {
+        "status": "healthy",
+        "service": "cadence-unified-platform",
+        "version": "1.0.0"
     }
 
 
