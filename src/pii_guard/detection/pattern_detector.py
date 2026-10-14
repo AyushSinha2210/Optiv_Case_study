@@ -107,7 +107,7 @@ _NON_PERSON_PREFIXES = {
 }
 
 
-def _is_valid_person_name(name_candidate: str) -> bool:
+def _is_valid_person_name(name_candidate: str, allow_lowercase: bool = False) -> bool:
     clean = name_candidate.strip(" ,;:\t\r\n")
     if not clean or len(clean) < 3 or len(clean) > 40:
         return False
@@ -128,22 +128,24 @@ def _is_valid_person_name(name_candidate: str) -> bool:
             return False
         if len(w_clean) < 2 and not (len(w) == 2 and w[1] == "."):
             return False
-    # Must be Title Case or ALL UPPERCASE
-    is_title = all(w[0].isupper() and (w[1:].islower() or w.endswith(".")) for w in words if len(w) > 1)
+    if allow_lowercase:
+        return True
+    # Allow Title Case ("Alex Example"), Mixed Case ("Ayush sinha"), or ALL UPPERCASE ("AYUSH SINHA")
+    is_capitalized = words[0][0].isupper()
     is_upper = clean.isupper()
-    return is_title or is_upper
+    return is_capitalized or is_upper
 
 
 def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
     candidates: list[Candidate] = []
     discovered_names: set[str] = set()
 
-    # 1. Explicitly labeled names: Name: Ayush Sinha, Candidate Name: ..., etc.
+    # 1. Explicitly labeled names: Name: Ayush Sinha, Name: ayush sinha, Candidate Name: ..., etc.
     labeled_pattern = re.compile(
         r"(?i)\b(?P<prefix>candidate[ \t]*name|applicant[ \t]*name|full[ \t]*name|student[ \t]*name|"
-        r"employee[ \t]*name|client[ \t]*name|customer[ \t]*name|contact[ \t]*person|name)"
+        r"employee[ \t]*name|client[ \t]*name|customer[ \t]*name|contact[ \t]*person|author[ \t]*name|author|name)"
         r"[ \t]*[:#-][ \t]*"
-        r"(?P<val>[A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})"
+        r"(?P<val>[a-zA-Z'.-]+(?:[ \t]+[a-zA-Z'.-]+){1,3})"
         r"(?=\b|[\r\n,;|])"
     )
     for m in labeled_pattern.finditer(text):
@@ -154,21 +156,21 @@ def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
         val = m.group("val").strip()
         start = m.start("val")
         end = start + len(val)
-        if _is_valid_person_name(val):
+        if _is_valid_person_name(val, allow_lowercase=True):
             candidates.append(Candidate(type="PERSON", start=start, end=end, confidence=0.95, source="pattern"))
             discovered_names.add(val)
 
     # 2. Honorifics: Mr. Ayush Sinha, Dr. Julian Thorne, etc.
     honorific_pattern = re.compile(
         r"\b(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.)[ \t]+"
-        r"([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){1,3})"
-        r"(?=\b|[\r\n,;|])"
+        r"([A-Z][a-zA-Z'.-]+(?:[ \t]+[A-Z][a-zA-Z'.-]+){0,2})\b"
     )
+
     for m in honorific_pattern.finditer(text):
         val = m.group(1).strip()
         start = m.start(1)
         end = start + len(val)
-        if _is_valid_person_name(val):
+        if _is_valid_person_name(val, allow_lowercase=True):
             candidates.append(Candidate(type="PERSON", start=start, end=end, confidence=0.90, source="pattern"))
             discovered_names.add(val)
 
@@ -182,6 +184,14 @@ def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
     )
 
     if has_contact_in_header:
+        # Extract potential name tokens from email in header (e.g. ayush.sinha from ayush22.sinha@...)
+        email_match = re.search(r"\b([A-Za-z0-9._%+-]+)@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", text[:1500])
+        email_tokens: set[str] = set()
+        if email_match:
+            raw_local = email_match.group(1).lower()
+            email_tokens = {re.sub(r"\d+", "", t) for t in re.split(r"[._%+-]+", raw_local) if len(t) >= 3}
+            email_tokens.discard("")
+
         lines = text.splitlines(keepends=True)
         offset = 0
         found_header_name = False
@@ -191,7 +201,9 @@ def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
             if stripped:
                 non_empty_count += 1
                 if non_empty_count <= 3 and not found_header_name:
-                    if _is_valid_person_name(stripped):
+                    line_words = {w.lower().strip(".,'") for w in stripped.split()}
+                    matches_email = bool(email_tokens and line_words.intersection(email_tokens))
+                    if _is_valid_person_name(stripped, allow_lowercase=matches_email):
                         line_start = offset + line.find(stripped)
                         line_end = line_start + len(stripped)
                         candidates.append(
@@ -203,7 +215,7 @@ def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
                     break
             offset += len(line)
 
-    # 4. Search for recurring mentions of any detected candidate name across document
+    # 4. Search for recurring mentions of any detected candidate name across document (case-insensitive)
     for name in discovered_names:
         escaped = re.escape(name)
         pattern = re.compile(rf"\b{escaped}\b", re.IGNORECASE)
@@ -214,6 +226,7 @@ def _detect_labeled_and_resume_names(text: str) -> list[Candidate]:
                 candidates.append(Candidate(type="PERSON", start=start, end=end, confidence=0.88, source="pattern"))
 
     return candidates
+
 
 _Validator = Optional[Callable[[str], bool]]
 

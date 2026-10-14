@@ -98,6 +98,28 @@ class TestResumeCandidateNameDetection:
         persons = [e for e in res.entities if e.type == "PERSON"]
         assert persons == []
 
+    def test_lowercase_and_mixed_case_name_detection(self):
+        """Verify 'ayush sinha', 'Ayush sinha', and 'Alex Example' are accurately detected."""
+        # 1. Labeled lowercase: 'Name: ayush sinha'
+        res1 = detect_pii(_doc("Name: ayush sinha\nEmail: ayush@example.com"))
+        assert any(e.type == "PERSON" and "ayush sinha" in "Name: ayush sinha\nEmail: ayush@example.com"[e.start:e.end] for e in res1.entities)
+
+        # 2. Labeled mixed-case: 'Name: Ayush sinha'
+        res2 = detect_pii(_doc("Name: Ayush sinha\nEmail: ayush@example.com"))
+        assert any(e.type == "PERSON" and "Ayush sinha" in "Name: Ayush sinha\nEmail: ayush@example.com"[e.start:e.end] for e in res2.entities)
+
+        # 3. Resume header lowercase with email: 'ayush sinha'
+        res3 = detect_pii(_doc("ayush sinha\nSoftware Engineer\nayush22.sinha@gmail.com\n+91 9876543210"))
+        assert any(e.type == "PERSON" and "ayush sinha" in "ayush sinha\nSoftware Engineer\nayush22.sinha@gmail.com\n+91 9876543210"[e.start:e.end] for e in res3.entities)
+
+        # 4. Resume header mixed case: 'Ayush sinha'
+        res4 = detect_pii(_doc("Ayush sinha\nSoftware Engineer\nayush22.sinha@gmail.com\n+91 9876543210"))
+        assert any(e.type == "PERSON" and "Ayush sinha" in "Ayush sinha\nSoftware Engineer\nayush22.sinha@gmail.com\n+91 9876543210"[e.start:e.end] for e in res4.entities)
+
+        # 5. Title case: 'Alex Example'
+        res5 = detect_pii(_doc("Alex Example\nSoftware Engineer\nalex@example.com\n+1 (555) 0199"))
+        assert any(e.type == "PERSON" and "Alex Example" in "Alex Example\nSoftware Engineer\nalex@example.com\n+1 (555) 0199"[e.start:e.end] for e in res5.entities)
+
     def test_technical_metadata_names_are_not_flagged(self):
         """Technical metadata keys (file name, db name, username) must not be flagged."""
         text = (
@@ -115,3 +137,5 @@ class TestResumeCandidateNameDetection:
         assert get_replacement("NAME") == "[REDACTED_PERSON]"
         assert get_replacement("PERSON_NAME") == "[REDACTED_PERSON]"
         assert get_replacement("CANDIDATE_NAME") == "[REDACTED_PERSON]"
+
+
