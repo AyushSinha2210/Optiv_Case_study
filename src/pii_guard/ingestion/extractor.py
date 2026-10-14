@@ -85,6 +85,14 @@ def extract_document(
         all_warnings: List[WarningInfo] = list(adapter_res.warnings)
         has_partial_signal = False
 
+        CRITICAL_PARTIAL_CODES = {
+            "WARN_OCR_LIMIT_REACHED",
+            "ERR_OCR_FAILED",
+            "WARN_PAGE_CORRUPTED",
+            "WARN_CORRUPTED_STREAM",
+        }
+        has_critical_failure = any(w.code in CRITICAL_PARTIAL_CODES for w in all_warnings)
+
         for ap in adapter_res.pages:
             norm_page_text = normalize_text(ap.text)
             normalized_texts.append(norm_page_text)
@@ -97,7 +105,7 @@ def extract_document(
             page_warning_codes = [w.code for w in ap.warnings]
             for w in ap.warnings:
                 all_warnings.append(w)
-                if "LOW_CONFIDENCE" in w.code or "LIMIT_REACHED" in w.code:
+                if w.code in CRITICAL_PARTIAL_CODES:
                     has_partial_signal = True
 
             assembled_pages.append(
@@ -128,10 +136,11 @@ def extract_document(
                     message="Document contained no extractable textual content",
                 )
             )
-        elif has_partial_signal or any("WARN" in w.code for w in all_warnings):
+        elif has_partial_signal or has_critical_failure:
             extraction_status = "partial"
         else:
             extraction_status = "success"
+
 
         return ExtractedDocument(
             document_id=doc_id,

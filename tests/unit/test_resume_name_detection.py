@@ -196,4 +196,101 @@ class TestResumeCandidateNameDetection:
         assert get_replacement("PERSON_NAME") == "[REDACTED_PERSON]"
         assert get_replacement("CANDIDATE_NAME") == "[REDACTED_PERSON]"
 
+    def test_user_phrase_name_and_reg_no_detection(self):
+        """Verify exact user phrase: 'name is ayush sinha and Reg. no. is 24BCI0119'."""
+        text = "name is ayush sinha and Reg. no. is 24BCI0119"
+        res = detect_pii(_doc(text))
+
+        persons = [text[e.start:e.end] for e in res.entities if e.type == "PERSON"]
+        employee_ids = [text[e.start:e.end] for e in res.entities if e.type == "EMPLOYEE_ID"]
+
+        assert "ayush sinha" in persons
+        assert "24BCI0119" in employee_ids
+
+        # Redaction verification
+        red = apply_redactions(text, [e.model_dump() for e in res.entities])
+        assert "ayush sinha" not in red.text
+        assert "24BCI0119" not in red.text
+        assert "[REDACTED_PERSON]" in red.text
+        assert "[REDACTED_EMPLOYEE_ID]" in red.text
+        assert red.text == "name is [REDACTED_PERSON] and Reg. no. is [REDACTED_EMPLOYEE_ID]"
+
+    def test_multi_name_sentence_all_names_detected(self):
+        """Verify multiple names in one sentence: neither is omitted."""
+        # 1. Coordinated pair in lowercase
+        text1 = "ayush sinha and alex example were assigned to lead the privacy engineering team"
+        res1 = detect_pii(_doc(text1))
+        matched1 = [text1[e.start:e.end] for e in res1.entities if e.type == "PERSON"]
+        assert "ayush sinha" in matched1
+        assert "alex example" in matched1
+
+        # 2. Enumerated team list
+        text2 = "team members: ayush sinha, alex example, Priya Sharma"
+        res2 = detect_pii(_doc(text2))
+        matched2 = [text2[e.start:e.end] for e in res2.entities if e.type == "PERSON"]
+        assert "ayush sinha" in matched2
+        assert "alex example" in matched2
+        assert "Priya Sharma" in matched2
+
+        # 3. Action sentence with multiple names
+        text3 = "The review was conducted by Ayush Sinha and Sarah Chen."
+        res3 = detect_pii(_doc(text3))
+        matched3 = [text3[e.start:e.end] for e in res3.entities if e.type == "PERSON"]
+        assert "Ayush Sinha" in matched3
+        assert "Sarah Chen" in matched3
+
+    def test_registration_and_academic_roll_numbers(self):
+        """Verify registration and roll numbers across formats."""
+        cases = [
+            ("Reg. no. is 24BCI0119", "24BCI0119"),
+            ("Reg. no: 24BCI0119", "24BCI0119"),
+            ("Registration Number is 24BCI0119", "24BCI0119"),
+            ("Roll no: 24BCI0119", "24BCI0119"),
+            ("Student ID: 24BCI0119", "24BCI0119"),
+            ("Student 24BCI0119 was present at the session", "24BCI0119"),
+            ("Roll No. 21BCE1042 submitted.", "21BCE1042"),
+        ]
+        for sentence, expected_val in cases:
+            res = detect_pii(_doc(sentence))
+            emp_ids = [sentence[e.start:e.end] for e in res.entities if e.type == "EMPLOYEE_ID"]
+            assert expected_val in emp_ids, f"Expected {expected_val} in {sentence}, found: {emp_ids}"
+
+    def test_image_bearing_document_not_blocked(self, tmp_path, monkeypatch):
+        """Documents with images (and benign OCR warnings like WARN_OCR_NO_TEXT) are not blocked."""
+        from src.pii_guard.orchestration import pipeline
+        from src.pii_guard.ingestion.schemas import ExtractedDocument, PageInfo, WarningInfo
+
+        source = tmp_path / "resume_with_photo.txt"
+        source.write_text("Ayush Sinha\nReg. no. is 24BCI0119\nSoftware Engineer", encoding="utf-8")
+
+        # Mock extractor returning success with informational image warning
+        doc_obj = ExtractedDocument(
+            document_id="doc-img-test",
+            source_type="pdf",
+            text="Ayush Sinha\nReg. no. is 24BCI0119\nSoftware Engineer",
+            pages=[
+                PageInfo(
+                    index=1,
+                    label="page",
+                    start=0,
+                    end=48,
+                    method="mixed",
+                    ocr_confidence=75.0,
+                    char_count=48,
+                    warnings=["WARN_OCR_NO_TEXT"],
+                )
+            ],
+            warnings=[WarningInfo(code="WARN_OCR_NO_TEXT", message="Image had no text", page=1)],
+            extraction_status="success",
+        )
+
+        monkeypatch.setattr(pipeline, "extract_document", lambda *_args, **_kwargs: doc_obj)
+        res = pipeline.process_document(str(source))
+
+        assert res.workflow_status == "success"
+        assert res.release_allowed is True
+        assert res.current_stage.value == "RELEASED"
+        assert res.artifact_ref is not None
+
+
 
