@@ -65,10 +65,15 @@ class PIIProcessingRun(Base):
         except Exception:
             pass
 
+        entities_data = []
+        if self.findings:
+            entities_data = [f.to_dict() for f in self.findings]
+
         return {
             "document_id": self.document_id,
             "original_filename": self.original_filename,
             "file_type": self.file_type,
+            "source_type": self.file_type,
             "file_size_bytes": self.file_size_bytes,
             "integrity_hash": self.integrity_hash,
             "workflow_status": self.workflow_status,
@@ -93,6 +98,7 @@ class PIIProcessingRun(Base):
             "extracted_text": self.extracted_text,
             "redacted_text": self.redacted_text,
             "stage_history": stages,
+            "entities": entities_data,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

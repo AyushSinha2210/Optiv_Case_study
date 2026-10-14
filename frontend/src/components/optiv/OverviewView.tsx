@@ -160,11 +160,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <span className="badge badge-info">{activeDocument.source_type?.toUpperCase()}</span>
               </div>
               <div className="optiv-doc-stats-row">
-                <span>Findings: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.entities.length}</strong></span>
+                <span>Findings: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.entities?.length ?? activeDocument.redactions_applied ?? 0}</strong></span>
                 <span>•</span>
-                <span>Redactions Applied: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.redactions_applied}</strong></span>
+                <span>Redactions Applied: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.redactions_applied ?? 0}</strong></span>
                 <span>•</span>
-                <span>Verification: <strong style={{ color: activeDocument.verification_status === 'PASS' ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>{activeDocument.verification_status}</strong></span>
+                <span>Verification: <strong style={{ color: activeDocument.verification_status === 'PASS' ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>{activeDocument.verification_status || 'UNKNOWN'}</strong></span>
               </div>
             </div>
           </div>
@@ -173,7 +173,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               onClick={() => onNavigateToTab('findings')}
               className="optiv-btn-header"
             >
-              Inspect {activeDocument.entities.length} Findings
+              Inspect {activeDocument.entities?.length ?? activeDocument.redactions_applied ?? 0} Findings
             </button>
             <button
               onClick={() => onNavigateToWorkspace(activeDocument.document_id)}

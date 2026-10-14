@@ -127,7 +127,7 @@ export const RedactionReviewView: React.FC<RedactionReviewViewProps> = ({
             <div className="optiv-doc-title-row">
               <span className="optiv-doc-title">
                 {activeDocument
-                  ? `Policy Evaluation for: ${activeDocument.document_id.slice(0, 18)}... (${activeDocument.source_type?.toUpperCase() || 'DOCUMENT'})`
+                  ? `Policy Evaluation for: ${activeDocument.document_id ? activeDocument.document_id.slice(0, 18) : 'Doc'}... (${activeDocument.source_type?.toUpperCase() || 'DOCUMENT'})`
                   : 'Enterprise Policy & Masking Taxonomy'}
               </span>
               {activeDocument && (
@@ -214,7 +214,7 @@ export const RedactionReviewView: React.FC<RedactionReviewViewProps> = ({
 
         {activeDocument && (
           <span style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)' }}>
-            Inspecting live document: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.document_id.slice(0, 16)}...</strong>
+            Inspecting live document: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.document_id ? activeDocument.document_id.slice(0, 16) : 'Doc'}...</strong>
           </span>
         )}
       </div>

@@ -47,7 +47,7 @@ export const VerificationView: React.FC<VerificationViewProps> = ({
             <div className="optiv-doc-title-row">
               <span className="optiv-doc-title">
                 {activeDocument
-                  ? `Stage 7 Verification Telemetry: ${activeDocument.document_id.slice(0, 18)}...`
+                  ? `Stage 7 Verification Telemetry: ${activeDocument.document_id ? activeDocument.document_id.slice(0, 18) : 'Doc'}...`
                   : 'Stage 7: Independent Post-Redaction Verification Plane'}
               </span>
               {activeDocument && (

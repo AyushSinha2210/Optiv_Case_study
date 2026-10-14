@@ -74,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <AlertOctagon size={14} className="text-rose" />
             )}
             <span className="optiv-status-docname">
-              Doc: {activeDocument.document_id.slice(0, 16)}...
+              Doc: {activeDocument.document_id ? activeDocument.document_id.slice(0, 16) : 'Active'}...
             </span>
             <span className="optiv-status-dot">•</span>
             <span className="optiv-status-verdict">
