@@ -42,3 +42,10 @@ case_study.pdf
 findings.docx
 executive_summary.txt
 .pdf
+
+# Local Pretrained PII Models & Tooling (Section 6: never commit model weights)
+models/
+models/privacy-filter-india-v5/
+models/openai-privacy-filter/
+.tools/privacy-filter-src/
+.tools/
