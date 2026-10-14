@@ -89,31 +89,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </div>
 
-      {/* AI Assistant Quick Trigger Card */}
-      <div
-        className="optiv-card"
-        style={{
-          marginTop: 'auto',
-          padding: 14,
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(14, 165, 233, 0.1) 100%)',
-          borderColor: 'rgba(99, 102, 241, 0.25)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <HelpCircle size={16} color="var(--tprm-indigo)" />
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tprm-text-primary)' }}>
-            AI Privacy Copilot
-          </span>
-        </div>
-        <p style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)', marginBottom: 10, lineHeight: 1.4 }}>
-          Grounded explanations of release barriers, PII classification, and residual re-scans.
-        </p>
+      {/* Compact AI Privacy Copilot Launcher */}
+      <div className="optiv-copilot-launcher">
         <button
           onClick={onOpenAssistant}
-          className="btn-primary"
-          style={{ width: '100%', fontSize: '0.75rem', padding: '6px 12px', justifyContent: 'center' }}
+          className="optiv-copilot-trigger-btn"
+          title="Open AI Privacy Copilot Drawer"
+          aria-label="Open AI Privacy Copilot Drawer"
         >
-          Ask Copilot
+          <div className="optiv-copilot-trigger-icon">
+            <HelpCircle size={16} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--tprm-text-primary)' }}>
+              AI Privacy Copilot
+            </span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--tprm-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              Explain Run & Invariants
+            </span>
+          </div>
         </button>
       </div>
     </aside>

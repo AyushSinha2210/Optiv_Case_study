@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle } from 'lucide-react';
 import type { UserProfile, SystemSettings } from '../../types';
+import { PageHeader } from './PageHeader';
 
 interface SettingsViewProps {
   currentUser?: UserProfile;
@@ -42,16 +43,12 @@ export const SettingsView: React.FC<SettingsViewProps> = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Header */}
-      <div className="optiv-card">
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--tprm-text-primary)' }}>
-          Governance Policy & System Threshold Configuration
-        </h2>
-        <p style={{ fontSize: '0.8rem', color: 'var(--tprm-text-muted)', margin: '4px 0 0' }}>
-          Configurable detection sensitivities, release gating barriers, and audit retention policies.
-        </p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Standardized Page Header */}
+      <PageHeader
+        title="Governance Policy & System Threshold Configuration"
+        description="Configurable detection sensitivities, fail-closed release gating barriers, OCR enhancements, and audit retention policies."
+      />
 
       {savedMessage && (
         <div style={{ padding: '10px 16px', borderRadius: 6, backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--tprm-emerald)', color: 'var(--tprm-emerald)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>

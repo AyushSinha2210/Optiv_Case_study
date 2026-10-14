@@ -22,6 +22,7 @@ import type {
   ScenarioFixture,
   UserProfile,
 } from '../../types';
+import { PageHeader } from './PageHeader';
 
 interface DocumentWorkspaceViewProps {
   currentUser: UserProfile;
@@ -263,7 +264,43 @@ export const DocumentWorkspaceView: React.FC<DocumentWorkspaceViewProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Standardized Page Header */}
+      <PageHeader
+        title="Document Comparison & Redaction Workspace"
+        description="Inspect immutable original inputs side-by-side with policy-sanitized outputs, evaluate detected PII spans, and verify layout retention."
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => onOpenAssistant(result?.document_id || '')}
+              className="btn-secondary"
+              title="Open AI Privacy Copilot for this document"
+            >
+              <HelpCircle size={14} color="var(--tprm-indigo)" />
+              <span>Ask Copilot</span>
+            </button>
+            <button
+              onClick={handleExecutePipeline}
+              className="btn-primary"
+              disabled={processing}
+              title="Run PII Privacy Pipeline on selected document"
+            >
+              {processing ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  <span>Scanning...</span>
+                </>
+              ) : (
+                <>
+                  <Play size={14} />
+                  <span>Run Privacy Engine</span>
+                </>
+              )}
+            </button>
+          </div>
+        }
+      />
+
       {/* Document Selection & Ingestion Bar */}
       <div className="optiv-card" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>

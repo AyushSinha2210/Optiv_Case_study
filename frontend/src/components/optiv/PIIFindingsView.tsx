@@ -14,6 +14,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { UserProfile, PIIFinding, ProcessResponse } from '../../types';
+import { PageHeader } from './PageHeader';
+import { CopyButton } from './CopyButton';
 
 interface PIIFindingsViewProps {
   currentUser?: UserProfile;
@@ -190,7 +192,24 @@ export const PIIFindingsView: React.FC<PIIFindingsViewProps> = ({
   const isViewingActive = selectedDocId === 'active' || (activeDocId && selectedDocId === activeDocId);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Standardized Page Header */}
+      <PageHeader
+        title="Classified PII Findings Ledger"
+        description="Granular entity-level inspection, detector confidence scores, contextual classification rationale, and manual review exception management."
+        actions={
+          <button
+            onClick={fetchFindings}
+            className="btn-secondary"
+            disabled={loading}
+            title="Refresh findings from server"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh Findings</span>
+          </button>
+        }
+      />
+
       {/* Dynamic Document Context Banner */}
       <div className="optiv-doc-banner">
         <div className="optiv-doc-banner-info">
@@ -204,6 +223,7 @@ export const PIIFindingsView: React.FC<PIIFindingsViewProps> = ({
                   ? `Active Document Findings: ${activeDocument.source_type?.toUpperCase() || 'FILE'}`
                   : `Document Findings Ledger: ${selectedDocId}`}
               </span>
+              <CopyButton text={isViewingActive && activeDocument ? activeDocument.document_id : selectedDocId} />
               {isViewingActive && activeDocument && (
                 <span className={`badge ${activeDocument.release_allowed ? 'badge-success' : 'badge-danger'}`}>
                   {activeDocument.release_allowed ? 'GATE: PASS' : 'GATE: BLOCKED'}
@@ -381,8 +401,13 @@ export const PIIFindingsView: React.FC<PIIFindingsViewProps> = ({
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--tprm-surface-subtle)')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--tprm-text-primary)' }}>
-                      {f.id}
+                    <td style={{ padding: '12px 16px' }}>
+                      <div className="optiv-doc-id-cell">
+                        <span className="optiv-doc-id-text" title={f.id}>
+                          {f.id}
+                        </span>
+                        <CopyButton text={f.id} />
+                      </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span className={`badge ${getBadgeClass(f.type)}`} style={{ fontWeight: 600 }}>

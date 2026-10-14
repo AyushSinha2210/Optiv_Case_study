@@ -7,12 +7,14 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle,
-  XCircle,
   ArrowRight,
   TrendingUp,
   RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 import type { OverviewMetrics, UserProfile, ProcessResponse } from '../../types';
+import { PageHeader } from './PageHeader';
+import { CopyButton } from './CopyButton';
 
 interface OverviewViewProps {
   currentUser: UserProfile;
@@ -55,116 +57,106 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     {
       title: 'Documents Received',
       value: metrics?.documents_received ?? 0,
-      icon: <FileText size={20} color="var(--tprm-indigo)" />,
-      change: 'Ingested & Parsed',
+      icon: <FileText size={18} color="var(--tprm-indigo)" />,
+      subtitle: 'Ingested & Normalized',
       tab: 'runs',
     },
     {
       title: 'Runs Completed',
       value: metrics?.processing_runs_completed ?? 0,
-      icon: <PlaySquare size={20} color="var(--tprm-cyan)" />,
-      change: 'E2E Pipeline Runs',
+      icon: <PlaySquare size={18} color="var(--tprm-cyan)" />,
+      subtitle: 'Pipeline Passes',
       tab: 'runs',
     },
     {
       title: 'PII Findings Flagged',
       value: metrics?.findings_detected ?? 0,
-      icon: <ShieldAlert size={20} color="#ef4444" />,
-      change: 'Sensitive Spans',
+      icon: <ShieldAlert size={18} color="#ef4444" />,
+      subtitle: 'Sensitive Spans',
       tab: 'findings',
     },
     {
       title: 'Successfully Masked',
       value: metrics?.findings_successfully_masked ?? 0,
-      icon: <ShieldCheck size={20} color="var(--tprm-emerald)" />,
-      change: 'Redacted Contextually',
+      icon: <ShieldCheck size={18} color="var(--tprm-emerald)" />,
+      subtitle: 'Redacted by Policy',
       tab: 'redaction',
     },
     {
       title: 'Verification Failures',
       value: metrics?.verification_failures ?? 0,
-      icon: <AlertTriangle size={20} color="#f59e0b" />,
-      change: 'Residual PII Caught',
+      icon: <AlertTriangle size={18} color="#f59e0b" />,
+      subtitle: 'Residual PII Caught',
       tab: 'verification',
     },
     {
       title: 'Awaiting Review',
       value: metrics?.documents_awaiting_review ?? 0,
-      icon: <Clock size={20} color="#8b5cf6" />,
-      change: 'Manual Review Queue',
+      icon: <Clock size={18} color="#8b5cf6" />,
+      subtitle: 'Manual Review Queue',
       tab: 'findings',
-    },
-    {
-      title: 'Blocked from Release',
-      value: metrics?.documents_blocked_from_release ?? 0,
-      icon: <XCircle size={20} color="var(--tprm-rose)" />,
-      change: 'Withheld at Gate',
-      tab: 'verification',
-    },
-    {
-      title: 'Approved for Release',
-      value: metrics?.documents_approved_for_release ?? 0,
-      icon: <CheckCircle size={20} color="var(--tprm-emerald)" />,
-      change: 'Cleared for Downstream',
-      tab: 'reports',
     },
   ];
 
+  const attentionRequired = (metrics?.verification_failures ?? 0) > 0 || (metrics?.documents_awaiting_review ?? 0) > 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Header Banner */}
-      <div className="optiv-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--tprm-text-primary)' }}>
-            OPTIV Document Privacy & Control Operations
-          </h2>
-          <p style={{ fontSize: '0.825rem', color: 'var(--tprm-text-muted)', margin: '4px 0 0' }}>
-            Multi-stage scanning, PII redaction pipeline, independent verification gates, and tamper-evident audit logs.
-          </p>
-        </div>
+      {/* Standardized Page Header */}
+      <PageHeader
+        title="OPTIV Document Privacy Operations Console"
+        description="Continuous document privacy monitoring, automated multi-stage PII detection, verifiable masking, and audit compliance."
+        actions={
+          <>
+            <button
+              onClick={fetchMetrics}
+              className="btn-secondary"
+              disabled={loading}
+              title="Refresh operational metrics"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+            <button
+              onClick={() => onNavigateToWorkspace()}
+              className="btn-primary"
+              title="Open Document Comparison Workspace"
+            >
+              <FileText size={15} />
+              <span>Open Document Workspace</span>
+            </button>
+          </>
+        }
+      />
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            onClick={fetchMetrics}
-            className="btn-secondary"
-            style={{ fontSize: '0.8rem', padding: '6px 12px' }}
-            disabled={loading}
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span>Refresh</span>
-          </button>
-          <button
-            onClick={() => onNavigateToWorkspace()}
-            className="btn-primary"
-            style={{ fontSize: '0.8rem', padding: '6px 14px' }}
-          >
-            <FileText size={15} />
-            <span>Open Document Workspace</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Active Document Highlight Banner */}
+      {/* Active Document Highlight Banner (Distinguished from Global Metrics) */}
       {activeDocument && (
         <div className="optiv-doc-banner">
           <div className="optiv-doc-banner-info">
-            <div className="optiv-doc-icon-wrap" style={{ backgroundColor: activeDocument.release_allowed ? 'var(--tprm-emerald-light)' : 'rgba(239, 68, 68, 0.15)', color: activeDocument.release_allowed ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>
+            <div
+              className="optiv-doc-icon-wrap"
+              style={{
+                backgroundColor: activeDocument.release_allowed ? 'var(--tprm-emerald-light)' : 'rgba(239, 68, 68, 0.15)',
+                color: activeDocument.release_allowed ? 'var(--tprm-emerald)' : 'var(--tprm-rose)',
+              }}
+            >
               <FileText size={22} />
             </div>
             <div className="optiv-doc-meta">
               <div className="optiv-doc-title-row">
                 <span className="optiv-doc-title">Active Document: {activeDocument.document_id}</span>
+                <CopyButton text={activeDocument.document_id} />
                 <span className={`badge ${activeDocument.release_allowed ? 'badge-success' : 'badge-danger'}`}>
                   {activeDocument.release_allowed ? 'RELEASE AUTHORIZED' : 'GATE BLOCKED'}
                 </span>
                 <span className="badge badge-info">{activeDocument.source_type?.toUpperCase()}</span>
               </div>
               <div className="optiv-doc-stats-row">
-                <span>Findings: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.entities?.length ?? activeDocument.redactions_applied ?? 0}</strong></span>
+                <span>Current Document Findings: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.entities?.length ?? activeDocument.redactions_applied ?? 0}</strong></span>
                 <span>•</span>
                 <span>Redactions Applied: <strong style={{ color: 'var(--tprm-text-primary)' }}>{activeDocument.redactions_applied ?? 0}</strong></span>
                 <span>•</span>
-                <span>Verification: <strong style={{ color: activeDocument.verification_status === 'PASS' ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>{activeDocument.verification_status || 'UNKNOWN'}</strong></span>
+                <span>Verification Verdict: <strong style={{ color: activeDocument.verification_status === 'PASS' ? 'var(--tprm-emerald)' : 'var(--tprm-rose)' }}>{activeDocument.verification_status || 'UNKNOWN'}</strong></span>
               </div>
             </div>
           </div>
@@ -172,46 +164,107 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <button
               onClick={() => onNavigateToTab('findings')}
               className="optiv-btn-header"
+              style={{ height: 38 }}
             >
               Inspect {activeDocument.entities?.length ?? activeDocument.redactions_applied ?? 0} Findings
             </button>
             <button
               onClick={() => onNavigateToWorkspace(activeDocument.document_id)}
               className="btn-primary"
-              style={{ fontSize: '0.8rem', padding: '6px 14px' }}
             >
-              View in Diff Workspace
+              <span>View in Diff Workspace</span>
+              <ExternalLink size={14} />
             </button>
           </div>
         </div>
       )}
 
-      {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-        {kpis.map((kpi, idx) => (
-          <div
-            key={idx}
-            className="optiv-card"
-            style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
-            onClick={() => onNavigateToTab(kpi.tab)}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--tprm-text-secondary)' }}>
-                {kpi.title}
-              </span>
-              <div style={{ padding: 6, borderRadius: 8, backgroundColor: 'var(--tprm-surface-subtle)' }}>
-                {kpi.icon}
+      {/* Items Requiring Attention Banner */}
+      {attentionRequired && (
+        <div
+          className="optiv-card"
+          style={{
+            borderColor: 'rgba(245, 158, 11, 0.4)',
+            backgroundColor: 'rgba(245, 158, 11, 0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 14,
+            padding: '16px 20px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ padding: 8, borderRadius: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.925rem', color: 'var(--tprm-text-primary)' }}>
+                Action Required: {metrics?.verification_failures ?? 0} Verification Failures & {metrics?.documents_awaiting_review ?? 0} Documents Awaiting Review
+              </div>
+              <div style={{ fontSize: '0.775rem', color: 'var(--tprm-text-muted)', marginTop: 2 }}>
+                Downstream AI systems cannot ingest blocked artifacts until residual PII is remediated and authorized by an operator.
               </div>
             </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--tprm-text-primary)', marginBottom: 4 }}>
-              {loading ? '-' : kpi.value}
-            </div>
-            <div style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <TrendingUp size={12} color="var(--tprm-emerald)" />
-              <span>{kpi.change}</span>
-            </div>
           </div>
-        ))}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => onNavigateToTab('verification')}
+              className="btn-secondary"
+              style={{ minHeight: 34, height: 34, padding: '0 12px', fontSize: '0.8rem' }}
+            >
+              Review Verification Failures
+            </button>
+            <button
+              onClick={() => onNavigateToTab('findings')}
+              className="btn-primary"
+              style={{ minHeight: 34, height: 34, padding: '0 12px', fontSize: '0.8rem' }}
+            >
+              Inspect Review Queue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Section Header for System-Wide KPI Grid */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--tprm-text-muted)' }}>
+            System-Wide Metrics (Cumulative Ledger)
+          </span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--tprm-text-muted)' }}>
+            All Ingested Documents
+          </span>
+        </div>
+
+        {/* 6-Card KPI Grid (3x2 Desktop, 2-Col Tablet, 1-Col Mobile) */}
+        <div className="optiv-kpi-grid">
+          {kpis.map((kpi, idx) => (
+            <div
+              key={idx}
+              className="optiv-card"
+              style={{ cursor: 'pointer', transition: 'all 0.15s ease', display: 'flex', flexDirection: 'column', gap: 8 }}
+              onClick={() => onNavigateToTab(kpi.tab)}
+              title={`View ${kpi.title} in ${kpi.tab}`}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--tprm-text-secondary)' }}>
+                  {kpi.title}
+                </span>
+                <div style={{ padding: 6, borderRadius: 8, backgroundColor: 'var(--tprm-surface-subtle)' }}>
+                  {kpi.icon}
+                </div>
+              </div>
+              <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--tprm-text-primary)' }}>
+                {loading ? '-' : kpi.value}
+              </div>
+              <div style={{ fontSize: '0.725rem', color: 'var(--tprm-text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto' }}>
+                <TrendingUp size={12} color="var(--tprm-emerald)" />
+                <span>{kpi.subtitle}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Two Column Layout: Category Distribution & Recent Runs */}
@@ -345,10 +398,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <tbody>
                 {metrics.recent_activity.map((run, idx) => (
                   <tr key={idx} style={{ borderBottom: '1px solid var(--tprm-border)' }}>
-                    <td style={{ padding: '10px 12px', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                      {run.document_id}
+                    <td style={{ padding: '10px 12px' }}>
+                      <div className="optiv-doc-id-cell">
+                        <span className="optiv-doc-id-text" title={run.document_id}>
+                          {run.document_id}
+                        </span>
+                        <CopyButton text={run.document_id} />
+                      </div>
                     </td>
-                    <td style={{ padding: '10px 12px' }}>{run.original_filename || 'document.txt'}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--tprm-text-primary)' }}>{run.original_filename || 'document.txt'}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <span className="badge badge-generic">{run.source_type || run.file_type || 'txt'}</span>
                     </td>

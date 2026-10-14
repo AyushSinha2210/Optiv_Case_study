@@ -9,6 +9,7 @@ import {
   Shield,
 } from 'lucide-react';
 import type { ProcessResponse } from '../../types';
+import { CopyButton } from './CopyButton';
 
 interface NavbarProps {
   theme: 'light' | 'dark';
@@ -67,19 +68,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Scanning In Progress</span>
           </div>
         ) : activeDocument ? (
-          <div className={`optiv-status-pill ${activeDocument.release_allowed ? 'passed' : 'blocked'}`}>
-            {activeDocument.release_allowed ? (
-              <FileCheck2 size={14} className="text-emerald" />
-            ) : (
-              <AlertOctagon size={14} className="text-rose" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div
+              className={`optiv-status-pill ${activeDocument.release_allowed ? 'passed' : 'blocked'}`}
+              title={`Active Document: ${activeDocument.document_id || 'Active'} • Gate: ${activeDocument.release_allowed ? 'Zero-Leakage PASS' : 'BLOCKED'}`}
+            >
+              {activeDocument.release_allowed ? (
+                <FileCheck2 size={14} className="text-emerald" />
+              ) : (
+                <AlertOctagon size={14} className="text-rose" />
+              )}
+              <span className="optiv-status-docname">
+                Doc: {activeDocument.document_id || 'Active'}
+              </span>
+              <span className="optiv-status-dot">•</span>
+              <span className="optiv-status-verdict">
+                {activeDocument.release_allowed ? 'Zero-Leakage PASS' : 'Gate BLOCKED'}
+              </span>
+            </div>
+            {activeDocument.document_id && (
+              <CopyButton text={activeDocument.document_id} />
             )}
-            <span className="optiv-status-docname">
-              Doc: {activeDocument.document_id ? activeDocument.document_id.slice(0, 16) : 'Active'}...
-            </span>
-            <span className="optiv-status-dot">•</span>
-            <span className="optiv-status-verdict">
-              {activeDocument.release_allowed ? 'Zero-Leakage PASS' : 'Gate BLOCKED'}
-            </span>
           </div>
         ) : (
           <div className="optiv-status-pill idle">
