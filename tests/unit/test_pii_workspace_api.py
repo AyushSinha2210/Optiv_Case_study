@@ -25,7 +25,7 @@ def test_overview_metrics(client):
 
 def test_auth_workflow(client):
     """Test user login, current user profile, and logout."""
-    login_res = client.post("/api/auth/login", json={"email": "admin@cadence.com"})
+    login_res = client.post("/api/auth/login", json={"email": "admin@cadence.com", "password": "test-password"})
     assert login_res.status_code == 200
     login_data = login_res.json()
     assert "token" in login_data

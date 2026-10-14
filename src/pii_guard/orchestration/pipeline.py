@@ -163,6 +163,44 @@ def process_document(
             duration_sec=t_ext_sec,
         )
 
+        # Partial extraction is not safe for automatic release. Detection can
+        # still be useful for diagnostics, but the authoritative pipeline must
+        # stop before redaction/release because unseen source content may
+        # contain undetected PII.
+        if extracted_doc.extraction_status == "partial":
+            partial_code = "WARN_PARTIAL_EXTRACTION_REQUIRES_REVIEW"
+            safe_warn_codes.append(partial_code)
+            state_mgr.transition_to(
+                PipelineStage.INCOMPLETE,
+                message="Partial extraction detected; manual review required before release",
+                metadata={"error_code": partial_code},
+            )
+            trail.record_event(
+                document_id=doc_id,
+                stage=PipelineStage.INCOMPLETE,
+                event_type="PARTIAL_EXTRACTION_BLOCKED",
+                status="incomplete",
+                duration_sec=t_ext_sec,
+                error_code=partial_code,
+            )
+            return ProcessingResult(
+                document_id=doc_id,
+                workflow_status="incomplete",
+                current_stage=PipelineStage.INCOMPLETE,
+                stage_history=state_mgr.history,
+                started_at=start_time,
+                completed_at=datetime.now(timezone.utc),
+                source_type=extracted_doc.source_type,
+                pages_count=len(extracted_doc.pages),
+                char_count=len(extracted_doc.text),
+                extraction_status="partial",
+                safe_warnings=safe_warn_codes,
+                safe_error="Document extraction was incomplete; release requires manual review",
+                safe_error_code=partial_code,
+                release_allowed=False,
+                artifact_ref=None,
+            )
+
         # -------------------------------------------------------------------
         # 4. STAGE: DETECTED
         # -------------------------------------------------------------------

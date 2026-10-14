@@ -220,7 +220,16 @@ class RapidOCREngine(BaseOCREngine):
 
 
 def get_ocr_engine(config: IngestionConfig) -> BaseOCREngine:
-    """Factory creating the configured OCR engine."""
+    """Factory creating the configured OCR engine.
+
+    RapidOCR is optional because its ONNX package is not available on every
+    supported Python version. If selected but unavailable, fall back to
+    Tesseract; extraction still reports failure if the external Tesseract
+    binary itself is not installed.
+    """
     if config.ocr_engine.lower() == "rapidocr":
-        return RapidOCREngine()
+        try:
+            return RapidOCREngine()
+        except (ImportError, ModuleNotFoundError):
+            return TesseractEngine(tesseract_cmd=config.tesseract_cmd)
     return TesseractEngine(tesseract_cmd=config.tesseract_cmd)

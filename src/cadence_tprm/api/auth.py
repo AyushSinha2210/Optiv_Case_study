@@ -1,11 +1,15 @@
 """Authentication, session context, organizational hierarchy, and user/group management endpoints."""
 
 from typing import List, Optional
+import hmac
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from src.cadence_tprm.database import get_db
+from src.cadence_tprm.config import settings
 from src.cadence_tprm.models.identity import Organization, Department, UserGroup, User, GroupMembership, Role, Permission
 from src.cadence_tprm.services.auth_service import AuthService, create_access_token, get_current_user, require_tprm_admin
 from src.cadence_tprm.services.audit_service import AuditService
@@ -14,7 +18,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication & RBAC"])
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: Optional[str] = None
+    password: str = Field(min_length=1)
 
 class CreateGroupRequest(BaseModel):
     name: str
@@ -30,6 +34,14 @@ class AddGroupMemberRequest(BaseModel):
 
 @router.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
+    configured_password = os.getenv("TPRM_DEMO_PASSWORD") or settings.DEMO_LOGIN_PASSWORD
+    if not configured_password or not hmac.compare_digest(req.password, configured_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     profile = AuthService.get_user_profile(db, req.email.lower().strip())
     if not profile:
         raise HTTPException(

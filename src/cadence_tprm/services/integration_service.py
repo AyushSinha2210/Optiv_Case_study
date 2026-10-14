@@ -3,6 +3,7 @@
 Source Authority: Cadence_TPRM_Training.docx Section 2.2, 3.0, 5.1, 4.2.3.
 """
 
+import json
 from typing import Dict, Any
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -53,7 +54,11 @@ class IntegrationService:
                 title=contract_data.get("title", f"Agreement with {vendor.name}"),
                 source="Ironclad",
                 status="Executed" if payload.get("event_type") == "contract.executed" else "Draft",
-                details=str(payload)
+                details=json.dumps({
+                    "event_type": payload.get("event_type"),
+                    "contract_reference": contract_ref,
+                    "source": "Ironclad",
+                })
             )
             db.add(contract)
             db.commit()
@@ -64,7 +69,11 @@ class IntegrationService:
             action=action_type,
             entity_type="INTEGRATION",
             entity_id=vendor.id,
-            details={"contract_reference": contract_ref, "payload": payload}
+            details={
+                "contract_reference": contract_ref,
+                "event_type": payload.get("event_type"),
+                "source": "Ironclad",
+            }
         )
 
         return {
