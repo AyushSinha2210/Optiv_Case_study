@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { AssistantChatResponse } from '../types';
-import { Bot, Send, Sparkles, BookOpen, ShieldCheck, Scale, Cpu } from 'lucide-react';
+import { HelpCircle, Send, BookOpen, ShieldCheck, Scale, Cpu, FileCheck2 } from 'lucide-react';
 
 interface AIAssistantProps {
   documentId: string;
@@ -49,7 +49,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ documentId }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)', padding: 8, borderRadius: 8 }}>
-            <Bot size={22} color="#ffffff" />
+            <ShieldCheck size={22} color="#ffffff" />
           </div>
           <div>
             <h3 style={{ fontSize: '1.1rem', margin: 0 }}>AI Security & Governance Assistant</h3>
@@ -58,8 +58,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ documentId }) => {
             </p>
           </div>
         </div>
-        <span className="badge badge-emp" style={{ fontSize: '0.75rem' }}>
-          <Sparkles size={12} /> CADENCE AI COPILOT
+        <span className="badge badge-emp" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <FileCheck2 size={12} /> CADENCE AI COPILOT
         </span>
       </div>
 
@@ -125,7 +125,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ documentId }) => {
       >
         {messages.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '240px', color: '#64748b', textAlign: 'center', gap: 8 }}>
-            <Bot size={36} color="#475569" />
+            <HelpCircle size={36} color="#475569" />
             <p style={{ maxWidth: 360, fontSize: '0.85rem' }}>
               Select an invariant query above or ask a question below to analyze the security outcome and backend state transitions for document <code>{documentId}</code>.
             </p>

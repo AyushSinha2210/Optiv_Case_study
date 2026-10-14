@@ -1,10 +1,8 @@
-"""End-to-End API Integration Tests for Cadence TPRM Endpoints."""
+"""End-to-End API Integration Tests for Cadence TPRM Endpoints (Lifecycle A through V)."""
 
 import pytest
 from fastapi.testclient import TestClient
 from src.cadence_tprm.main import app
-from src.cadence_tprm.database import SessionLocal, Base, engine
-from src.cadence_tprm.seed.seed_data import seed_database
 
 client = TestClient(app)
 
@@ -29,6 +27,31 @@ def test_auth_login_and_me():
     me_res = client.get("/api/tprm/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me_res.status_code == 200
     assert me_res.json()["user"]["email"] == "daniela.figueroa@cadence.com"
+
+def test_organization_hierarchy_and_attribute_manager_endpoints():
+    # Verify Organization -> Departments -> Groups -> Users -> Roles -> Permissions
+    h_res = client.get("/api/tprm/v1/auth/hierarchy", headers={"X-User-Email": "daniela.figueroa@cadence.com"})
+    assert h_res.status_code == 200
+    h_data = h_res.json()
+    assert h_data["organization"]["name"] == "Cadence Design Systems"
+    assert len(h_data["departments"]) >= 9
+    assert len(h_data["groups"]) >= 9
+    assert len(h_data["roles"]) >= 4
+
+    # Verify Attribute Manager inventory & protection against deactivating workflow driver attributes
+    attr_res = client.get("/api/tprm/v1/vendors/attributes/inventory", headers={"X-User-Email": "daniela.figueroa@cadence.com"})
+    assert attr_res.status_code == 200
+    attrs = attr_res.json()["items"]
+    assert len(attrs) >= 8
+    tier_attr = next(a for a in attrs if a["key_name"] == "Vendor Tier")
+
+    # Attempting to deactivate Vendor Tier (workflow driver) must fail with 400
+    deact_res = client.put(
+        f"/api/tprm/v1/vendors/attributes/inventory/{tier_attr['id']}",
+        json={"is_active": False},
+        headers={"X-User-Email": "daniela.figueroa@cadence.com"}
+    )
+    assert deact_res.status_code == 400
 
 def test_vendor_lifecycle_api_flow():
     # 1. Create a new vendor
@@ -89,7 +112,55 @@ def test_vendor_lifecycle_api_flow():
     assert approve_res.status_code == 200
     assert approve_res.json()["lifecycle_status"] == "Live"
 
-def test_dashboard_reporting_endpoint():
+    # 7. Record renewal decision
+    ren_res = client.post(
+        f"/api/tprm/v1/vendors/{vendor_id}/renew",
+        json={"decision": "Renewed", "rationale": "Annual reassessment satisfactory."},
+        headers={"X-User-Email": "daniela.figueroa@cadence.com"}
+    )
+    assert ren_res.status_code == 200
+
+    # 8. Offboard -> Close -> Archive lifecycle
+    off_res = client.post(
+        f"/api/tprm/v1/vendors/{vendor_id}/offboard",
+        json={"reason": "Contract completed."},
+        headers={"X-User-Email": "daniela.figueroa@cadence.com"}
+    )
+    assert off_res.status_code == 200
+
+    close_res = client.post(
+        f"/api/tprm/v1/vendors/{vendor_id}/close",
+        headers={"X-User-Email": "daniela.figueroa@cadence.com"}
+    )
+    assert close_res.status_code == 200
+    assert close_res.json()["stage"] == "Closed"
+
+    arch_res = client.post(
+        f"/api/tprm/v1/vendors/{vendor_id}/archive",
+        headers={"X-User-Email": "daniela.figueroa@cadence.com"}
+    )
+    assert arch_res.status_code == 200
+    assert arch_res.json()["is_archived"] is True
+
+def test_questionnaire_versioning_and_csv_export():
+    # Method B versioning
+    ver_res = client.post(
+        "/api/tprm/v1/questionnaires/templates/T1-2_v1/version",
+        json={"method": "B"},
+        headers={"X-User-Email": "daniela.figueroa@cadence.com"}
+    )
+    assert ver_res.status_code == 200
+    assert ver_res.json()["version"] >= 2
+
+    # CSV export
+    csv_res = client.get(
+        "/api/tprm/v1/questionnaires/templates/T1-2_v1/export-csv",
+        headers={"X-User-Email": "daniela.figueroa@cadence.com"}
+    )
+    assert csv_res.status_code == 200
+    assert "Contracting and Legal" in csv_res.text
+
+def test_dashboard_reporting_and_export_endpoint():
     res = client.get("/api/tprm/v1/reports/summary", headers={"X-User-Email": "daniela.figueroa@cadence.com"})
     assert res.status_code == 200
     metrics = res.json()
@@ -97,6 +168,10 @@ def test_dashboard_reporting_endpoint():
     assert "assessments" in metrics
     assert "risk_findings" in metrics
     assert "vendors_by_category" in metrics
+
+    exp_res = client.get("/api/tprm/v1/reports/export/vendors", headers={"X-User-Email": "daniela.figueroa@cadence.com"})
+    assert exp_res.status_code == 200
+    assert "Apex Cloud Infrastructure Ltd" in exp_res.text
 
 def test_ironclad_webhook_ingestion():
     webhook_payload = {

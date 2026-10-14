@@ -7,10 +7,14 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
+  title?: string;
   is_active: boolean;
   is_admin: boolean;
+  is_synthetic?: boolean;
   groups: string[];
   group_roles: Record<string, string>;
+  roles?: string[];
+  permissions?: string[];
   is_respondent?: boolean;
 }
 
@@ -42,6 +46,8 @@ export interface VendorItem {
   lifecycle_status: LifecycleStatus;
   current_workflow_name: string;
   current_stage: string;
+  is_archived?: boolean;
+  renewal_status?: string;
   last_assessment_completion_date: string | null;
   next_reassessment_due_date: string | null;
   created_at: string;
@@ -57,16 +63,11 @@ export interface ContractItem {
   expiration_date: string | null;
 }
 
-export interface VendorDetailResponse {
-  vendor: VendorItem;
-  contracts: ContractItem[];
-  assessments: any[];
-  findings: RiskFindingItem[];
-  workflow_instance?: any;
-}
-
 export interface RiskFindingItem {
   id: string;
+  assessment_id?: string;
+  vendor_id?: string;
+  vendor_name?: string;
   rule_code: string;
   risk_name: string;
   inherent_risk: 'High' | 'Medium' | 'Low';
@@ -89,6 +90,7 @@ export interface TaskItem {
   assignee_email?: string;
   collaborator_group?: string;
   due_date: string;
+  reminder_date?: string;
   is_overdue: boolean;
   status: 'Pending' | 'In Progress' | 'Completed' | 'Overdue';
   created_at: string;
@@ -96,6 +98,7 @@ export interface TaskItem {
 
 export interface NotificationItem {
   id: string;
+  recipient_email?: string;
   subject: string;
   body: string;
   is_read: boolean;
@@ -109,6 +112,7 @@ export interface QuestionItem {
   prompt: string;
   question_type: string;
   options?: string[];
+  favorable_answer?: string;
   is_required: boolean;
   is_conditional: boolean;
   is_visible: boolean;
@@ -125,20 +129,55 @@ export interface SectionItem {
 
 export interface ConditionalRuleItem {
   rule_code: string;
+  section_name?: string;
+  condition_logic?: string;
   trigger_question_code: string;
+  trigger_operator?: string;
   trigger_response: string;
+  primary_shown_question?: string;
+  copy_logic_to_questions?: string[];
   shown_question_codes: string[];
   description?: string;
 }
 
+export interface RiskRuleSpecItem {
+  rule_code: string;
+  rule_name: string;
+  condition_logic: string;
+  trigger_type: string;
+  trigger_question_code: string;
+  trigger_operator: string;
+  trigger_response: string;
+  action_type: string;
+  risk_name?: string;
+  inherent_risk?: string;
+  control_id?: string;
+  control_name?: string;
+  task_name?: string;
+  assignee?: string;
+  collaborator_group?: string;
+  responsible_group?: string;
+  result_status?: string;
+  result_comments?: string;
+  source_notes?: string;
+}
+
 export interface TemplateDetail {
   id: string;
+  questionnaire_no?: string;
   code: string;
   name: string;
   description: string;
+  template_language?: string;
+  template_icon?: string;
+  source_file_name?: string;
+  approver_group?: string;
   version: number;
+  status?: string;
+  is_published?: boolean;
   sections: SectionItem[];
   conditional_rules: ConditionalRuleItem[];
+  risk_rules?: RiskRuleSpecItem[];
 }
 
 export interface AssessmentReviewItem {
@@ -177,6 +216,7 @@ export interface DashboardSummary {
   vendors_by_category: Record<string, number>;
   vendors_by_tier: Record<string, number>;
   vendors_by_status: Record<string, number>;
+  vendors_by_stage?: Record<string, number>;
   assessments: {
     total: number;
     pending: number;
@@ -194,6 +234,7 @@ export interface DashboardSummary {
     pending_tasks: number;
     overdue_tasks: number;
     reassessments_due: number;
+    renewals_pending?: number;
   };
 }
 
@@ -207,11 +248,45 @@ export interface AuditLogItem {
   timestamp: string;
 }
 
+export interface WorkflowStageDef {
+  name: string;
+  badge_color: string;
+  description: string;
+  is_used: boolean;
+}
+
+export interface WorkflowRuleItem {
+  rule_code: string;
+  source_sr_no: string;
+  rule_name: string;
+  stage_name: string;
+  trigger_name?: string;
+  trigger_type?: string;
+  rule_type: string;
+  description: string;
+  condition_expression: string;
+  action_expression: string;
+  discrepancy_note?: string;
+}
+
+export interface SLAConfigItem {
+  sla_no: string;
+  sla_name: string;
+  description: string;
+  timeline_days: number;
+  effective_deadline_days: number;
+  reminder_days: number | null;
+}
+
 export interface WorkflowItem {
   id: string;
   name: string;
   description: string;
+  status?: string;
+  is_default?: boolean;
   is_active: boolean;
+  stages?: WorkflowStageDef[];
+  rules?: WorkflowRuleItem[];
   instances_count: number;
 }
 
@@ -243,6 +318,10 @@ export interface DetectedEntity {
   confidence: number;
   value: string;
   masked_value: string;
+  detector_method?: string;
+  rule_id?: string;
+  rationale?: string;
+  page?: number;
 }
 
 export interface ProcessResponse {
@@ -292,16 +371,65 @@ export interface AssistantChatResponse {
 
 export interface AuditEvent {
   event_id?: string;
+  document_id?: string;
   timestamp: string;
   stage: string;
   event_type: string;
   status: string;
+  error_code?: string;
   duration_sec?: number;
   entity_count?: number;
   verification_status?: string | null;
+  release_decision?: boolean;
   step?: number;
   action?: string;
   actor?: string;
   details?: Record<string, any>;
   integrity_hash?: string;
+  safe_message?: string;
 }
+
+export interface PIIFinding {
+  id: string;
+  document_id: string;
+  finding_index: number;
+  type: string;
+  start: number;
+  end: number;
+  confidence: number;
+  value: string;
+  masked_value: string;
+  detector_method: string;
+  rule_id: string;
+  rationale: string;
+  status: string;
+  verification_result: string;
+  page_or_slide: number;
+  risk_level: string;
+  created_at?: string;
+}
+
+export interface OverviewMetrics {
+  documents_received: number;
+  processing_runs_completed: number;
+  findings_detected: number;
+  findings_successfully_masked: number;
+  verification_failures: number;
+  documents_awaiting_review: number;
+  documents_blocked_from_release: number;
+  documents_approved_for_release: number;
+  category_breakdown: Record<string, number>;
+  recent_activity: any[];
+}
+
+export interface SystemSettings {
+  zero_leakage_mandate: boolean;
+  minimum_structure_score: number;
+  confidence_threshold: number;
+  ocr_confidence_threshold: number;
+  enforce_luhn_check: boolean;
+  ai_explanation_mode: string;
+  retention_policy_days: number;
+  supported_formats: string[];
+}
+

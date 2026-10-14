@@ -6,6 +6,8 @@ from .adapters.pdf import PDFAdapter
 from .adapters.docx import DOCXAdapter
 from .adapters.pptx import PPTXAdapter
 from .adapters.txt import TXTAdapter
+from .adapters.json_adapter import JSONAdapter
+from .adapters.image import ImageAdapter
 
 # Registry of format adapters
 _ADAPTER_REGISTRY: Dict[str, Type[BaseAdapter]] = {
@@ -13,6 +15,11 @@ _ADAPTER_REGISTRY: Dict[str, Type[BaseAdapter]] = {
     "docx": DOCXAdapter,
     "pptx": PPTXAdapter,
     "txt": TXTAdapter,
+    "json": JSONAdapter,
+    "image": ImageAdapter,
+    "png": ImageAdapter,
+    "jpg": ImageAdapter,
+    "jpeg": ImageAdapter,
 }
 
 

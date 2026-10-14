@@ -4,13 +4,17 @@ from src.cadence_tprm.database import Base
 from src.cadence_tprm.models.identity import (
     Organization,
     Department,
+    Role,
+    Permission,
     UserGroup,
     User,
     GroupMembership,
 )
 from src.cadence_tprm.models.vendor import (
     Vendor,
+    VendorAttributeDefinition,
     Contract,
+    RenewalDecision,
 )
 from src.cadence_tprm.models.questionnaire import (
     QuestionnaireTemplate,
@@ -28,6 +32,8 @@ from src.cadence_tprm.models.assessment import (
 )
 from src.cadence_tprm.models.workflow import (
     Workflow,
+    WorkflowRuleSpec,
+    SLAConfig,
     WorkflowInstance,
     WorkflowTransition,
 )
@@ -43,11 +49,15 @@ __all__ = [
     "Base",
     "Organization",
     "Department",
+    "Role",
+    "Permission",
     "UserGroup",
     "User",
     "GroupMembership",
     "Vendor",
+    "VendorAttributeDefinition",
     "Contract",
+    "RenewalDecision",
     "QuestionnaireTemplate",
     "QuestionnaireSection",
     "Question",
@@ -59,6 +69,8 @@ __all__ = [
     "AssessmentReview",
     "MitigationPlan",
     "Workflow",
+    "WorkflowRuleSpec",
+    "SLAConfig",
     "WorkflowInstance",
     "WorkflowTransition",
     "Task",

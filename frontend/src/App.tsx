@@ -1,9 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import './tprm.css';
-import { Header } from './components/tprm/Header';
-import { Sidebar } from './components/tprm/Sidebar';
-import type { NavigationTab } from './components/tprm/Sidebar';
-import { DashboardView } from './components/tprm/DashboardView';
+import './workspace.css';
+
+// OPTIV Document Privacy & Audit Workspace Components
+import { Navbar } from './components/optiv/Navbar';
+import { Sidebar } from './components/optiv/Sidebar';
+import type { OptivTab } from './components/optiv/Sidebar';
+import { OverviewView } from './components/optiv/OverviewView';
+import { DocumentWorkspaceView } from './components/optiv/DocumentWorkspaceView';
+import { ProcessingRunsView } from './components/optiv/ProcessingRunsView';
+import { PIIFindingsView } from './components/optiv/PIIFindingsView';
+import { RedactionReviewView } from './components/optiv/RedactionReviewView';
+import { VerificationView } from './components/optiv/VerificationView';
+import { AuditLogsView } from './components/optiv/AuditLogsView';
+import { ReportsDownloadsView } from './components/optiv/ReportsDownloadsView';
+import { SettingsView } from './components/optiv/SettingsView';
+import { AIAssistantDrawer } from './components/optiv/AIAssistantDrawer';
+
+// TPRM Platform Components (preserves full TPRM functionality)
+import { Header as TPRMHeader, LoginView } from './components/tprm/Header';
+import { Sidebar as TPRMSidebar } from './components/tprm/Sidebar';
+import type { NavigationTab as TPRMNavigationTab } from './components/tprm/Sidebar';
+import { DashboardView as TPRMDashboardView } from './components/tprm/DashboardView';
 import { VendorDirectoryView } from './components/tprm/VendorDirectoryView';
 import { OnboardingWizardView } from './components/tprm/OnboardingWizardView';
 import { QuestionnaireRunnerView } from './components/tprm/QuestionnaireRunnerView';
@@ -12,451 +30,270 @@ import { TasksApprovalsView } from './components/tprm/TasksApprovalsView';
 import { ReassessmentsView } from './components/tprm/ReassessmentsView';
 import { WorkflowsView } from './components/tprm/WorkflowsView';
 import { OrganizationAdminView } from './components/tprm/OrganizationAdminView';
-import { AuditLedgerView } from './components/tprm/AuditLedgerView';
+import { AuditLedgerView as TPRMAuditLedgerView } from './components/tprm/AuditLedgerView';
 
-// Legacy components for Case Study PII Guard testing
-import { PipelineStages } from './components/PipelineStages';
-import { DocumentComparison } from './components/DocumentComparison';
-import { AIAssistant } from './components/AIAssistant';
-import { AuditLedger } from './components/AuditLedger';
-import type { ProcessResponse, ScenarioFixture, UserProfile, NotificationItem } from './types';
-import { Play } from 'lucide-react';
+import type { UserProfile, ScenarioFixture, NotificationItem, ProcessResponse } from './types';
 
-const DEFAULT_USER: UserProfile = {
-  id: 'usr_vrm_01',
-  email: 'daniela.figueroa@cadence.com',
-  full_name: 'Daniela Figueroa',
+// Default authorized security session without arbitrary switchable accounts
+const DEFAULT_OPERATOR: UserProfile = {
+  id: 'usr_optiv_operator',
+  email: 'privacy@optiv.security',
+  full_name: 'Optiv Privacy & Security Officer',
+  title: 'Lead Privacy Officer & Security Engineer',
   is_active: true,
   is_admin: true,
-  groups: ['Vendor Risk Management', 'Legal', 'Finance'],
-  group_roles: { 'Vendor Risk Management': 'Lead Reviewer / Administrator' },
+  groups: ['Privacy Engineering Group', 'Security Compliance Group'],
+  group_roles: { 'Privacy Engineering Group': 'Admin', 'Security Compliance Group': 'Admin' },
+  permissions: ['read', 'write', 'redact', 'release', 'audit', 'admin'],
 };
 
 export const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(DEFAULT_USER);
-  const [currentTab, setCurrentTab] = useState<NavigationTab | 'pii_guard'>('dashboard');
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  // Theme state with localStorage persistence
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('optiv_theme') as 'light' | 'dark') || 'light';
+  });
+
+  // Active platform toggle: OPTIV Document Privacy Workspace (Default) vs TPRM Platform
+  const [activePlatform, setActivePlatform] = useState<'pii_workspace' | 'tprm'>('pii_workspace');
+
+  // OPTIV Workspace Tab
+  const [optivTab, setOptivTab] = useState<OptivTab>('overview');
+
+  // TPRM Platform Tab
+  const [tprmTab, setTprmTab] = useState<TPRMNavigationTab>('dashboard');
+
+  // Single authorized session
+  const [currentUser, setCurrentUser] = useState<UserProfile>(DEFAULT_OPERATOR);
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+
+  // Active Document State across all views
+  const [activeDocument, setActiveDocument] = useState<ProcessResponse | null>(null);
+  const [selectedWorkspaceDocId, setSelectedWorkspaceDocId] = useState<string | null>(null);
+  const [selectedEntityIndex, setSelectedEntityIndex] = useState<number | null>(null);
+
+  // Scenarios & Metrics
+  const [scenarios, setScenarios] = useState<ScenarioFixture[]>([]);
+  const [openFindingsCount, setOpenFindingsCount] = useState<number>(0);
+  const [blockedCount, setBlockedCount] = useState<number>(0);
+
+  // AI Assistant Drawer state
+  const [assistantOpen, setAssistantOpen] = useState<boolean>(false);
+  const [assistantDocId, setAssistantDocId] = useState<string>('');
+
+  // TPRM live notifications
+  const [notifications] = useState<NotificationItem[]>([]);
   const [activeAssessmentId, setActiveAssessmentId] = useState<string | null>(null);
 
-  // Metrics for badges
-  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(2);
-  const [pendingTasksCount, setPendingTasksCount] = useState<number>(4);
-  const [openRisksCount, setOpenRisksCount] = useState<number>(3);
-
-  // Legacy pipeline state
-  const [scenarios, setScenarios] = useState<ScenarioFixture[]>([]);
-  const [selectedScenario, setSelectedScenario] = useState<string>('03_mixed_pii.txt');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [inputMode, setInputMode] = useState<'scenario' | 'upload'>('scenario');
-  const [simulateFailure, setSimulateFailure] = useState<boolean>(false);
-  const [legacyTab, setLegacyTab] = useState<'stages' | 'comparison' | 'assistant' | 'audit'>('stages');
-  const [legacyProcessing, setLegacyProcessing] = useState<boolean>(false);
-  const [legacyResult, setLegacyResult] = useState<ProcessResponse | null>(null);
-  const [legacyError, setLegacyError] = useState<string | null>(null);
-
-  // Load notifications and metrics from backend
-  const refreshMetrics = async () => {
-    try {
-      const summaryRes = await fetch('/api/tprm/v1/reports/summary');
-      if (summaryRes.ok) {
-        const summary = await summaryRes.json();
-        setOpenRisksCount(summary.risk_findings?.high || 0);
-        setPendingTasksCount(summary.sla_and_tasks?.pending_tasks || 0);
-      }
-
-      const tasksRes = await fetch('/api/tprm/v1/tasks');
-      if (tasksRes.ok) {
-        const tasksData = await tasksRes.json();
-        const approvals = (tasksData.items || []).filter(
-          (t: any) => t.task_type.includes('Approval') && t.status !== 'Completed'
-        ).length;
-        setPendingApprovalsCount(approvals);
-      }
-    } catch (err) {
-      console.warn('Initial TPRM metrics fetch fallback', err);
-    }
+  // Toggle and persist theme
+  const handleToggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    localStorage.setItem('optiv_theme', next);
   };
 
+  // Sync active document
+  const handleDocumentChange = (doc: ProcessResponse) => {
+    setActiveDocument(doc);
+    setSelectedWorkspaceDocId(doc.document_id);
+    if (doc.entities) {
+      setOpenFindingsCount(doc.entities.length);
+    }
+    setBlockedCount(doc.release_allowed ? 0 : 1);
+  };
+
+  // Fetch initial scenarios and latest processing run so views behave with a live document
   useEffect(() => {
-    refreshMetrics();
-
-    // Fetch initial notifications
-    setNotifications([
-      {
-        id: 'notif_1',
-        subject: 'SLA Warning: Apex Cloud Assessment Review',
-        body: 'Apex Cloud Systems due diligence review is due in 24 hours under Table 13 SLA.',
-        is_read: false,
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: 'notif_2',
-        subject: 'Table 14 High Risk Triggered: QRC_001',
-        body: 'Staffing Plus Inc flagged for unencrypted data in transit. Security mitigation required.',
-        is_read: false,
-        created_at: new Date(Date.now() - 7200000).toISOString(),
-      },
-    ]);
-
-    // Fetch scenarios for legacy tab
     fetch('/api/scenarios')
       .then((res) => res.json())
-      .then((data) => setScenarios(data.scenarios || []))
+      .then((data) => {
+        setScenarios(data.scenarios || []);
+      })
+      .catch(() => {});
+
+    // Load latest run from server
+    fetch('/api/runs?limit=1')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.runs && data.runs.length > 0) {
+          const latest = data.runs[0];
+          setActiveDocument(latest);
+          setSelectedWorkspaceDocId(latest.document_id);
+          if (latest.entities) {
+            setOpenFindingsCount(latest.entities.length);
+          }
+          setBlockedCount(latest.release_allowed ? 0 : 1);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/overview/metrics')
+      .then((res) => res.json())
+      .then((data) => {
+        setOpenFindingsCount((prev) => (prev > 0 ? prev : data.findings_detected || 0));
+        setBlockedCount((prev) => (prev > 0 ? prev : data.documents_blocked_from_release || 0));
+      })
       .catch(() => {});
   }, []);
 
-  const handleSwitchUser = async (email: string) => {
-    try {
-      const res = await fetch(`/api/tprm/v1/auth/me?email=${encodeURIComponent(email)}`);
-      if (res.ok) {
-        const user = await res.json();
-        setCurrentUser(user);
-      } else {
-        // Fallback demo switch
-        setCurrentUser({
-          id: `usr_${email.split('@')[0]}`,
-          email,
-          full_name: email.split('@')[0].replace('.', ' ').toUpperCase(),
-          is_active: true,
-          is_admin: email.includes('daniela') || email.includes('bridgett'),
-          groups: [email.includes('sec') ? 'Security' : email.includes('leg') ? 'Legal' : 'Vendor Risk Management'],
-          group_roles: {},
-        });
-      }
-    } catch (err) {
-      console.error('Error switching user', err);
-    }
+  const handleOpenAssistant = (docId?: string) => {
+    setAssistantDocId(docId || activeDocument?.document_id || '03_mixed_pii.txt');
+    setAssistantOpen(true);
   };
 
-  const handleMarkNotificationRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
+  const handleNavigateWorkspaceWithDoc = (docId?: string, entityIdx?: number) => {
+    if (docId) setSelectedWorkspaceDocId(docId);
+    if (entityIdx !== undefined) setSelectedEntityIndex(entityIdx);
+    setOptivTab('workspace');
   };
 
-  // Legacy pipeline execution
-  const handleExecuteLegacyPipeline = async () => {
-    setLegacyError(null);
-    setLegacyProcessing(true);
-    try {
-      const formData = new FormData();
-      formData.append('simulate_verification_failure', simulateFailure.toString());
-      if (inputMode === 'scenario') {
-        formData.append('scenario_filename', selectedScenario);
-      } else {
-        if (!uploadedFile) {
-          setLegacyError('Please select a file to upload.');
-          setLegacyProcessing(false);
-          return;
-        }
-        formData.append('file', uploadedFile);
-      }
-
-      const res = await fetch('/api/process', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ detail: 'Pipeline execution failed' }));
-        throw new Error(errData.detail || 'Execution failed');
-      }
-
-      const data: ProcessResponse = await res.json();
-      setLegacyResult(data);
-    } catch (err: any) {
-      setLegacyError(err.message || 'Error executing PII Guard pipeline');
-    } finally {
-      setLegacyProcessing(false);
-    }
-  };
-
-  return (
-    <div className="enterprise-shell">
-      {/* Enterprise Header */}
-      <Header
-        currentUser={currentUser}
-        onSwitchUser={handleSwitchUser}
-        notifications={notifications}
-        onMarkNotificationRead={handleMarkNotificationRead}
-        onSearch={(q) => {
-          if (q) setCurrentTab('directory');
+  if (showLoginModal) {
+    return (
+      <LoginView
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setShowLoginModal(false);
         }}
       />
+    );
+  }
 
-      <div className="enterprise-body">
-        {/* Hierarchical Sidebar */}
-        <Sidebar
-          currentTab={currentTab as NavigationTab}
-          onSelectTab={(tab) => setCurrentTab(tab)}
-          pendingApprovalsCount={pendingApprovalsCount}
-          pendingTasksCount={pendingTasksCount}
-          openRisksCount={openRisksCount}
+  return (
+    <div className={`enterprise-shell ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
+      {/* Platform Header */}
+      {activePlatform === 'pii_workspace' ? (
+        <Navbar
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          currentView={optivTab}
+          activeDocument={activeDocument}
+          onTogglePlatform={() => setActivePlatform('tprm')}
+          activePlatform={activePlatform}
         />
+      ) : (
+        <TPRMHeader
+          currentUser={currentUser}
+          onSwitchUser={() => {}}
+          notifications={notifications}
+          onMarkNotificationRead={() => {}}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onLogout={() => setShowLoginModal(true)}
+          onSearch={() => {}}
+        />
+      )}
 
-        {/* Main Content Viewport */}
-        <main className="enterprise-main">
-          {/* Breadcrumbs */}
-          <div className="tprm-breadcrumbs">
-            <span className="text-slate-400">Cadence TPRM</span>
-            <span>/</span>
-            <span className="capitalize">{currentTab.replace('_', ' ')}</span>
-          </div>
+      {/* Main Workspace Body */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar */}
+        {activePlatform === 'pii_workspace' ? (
+          <Sidebar
+            currentTab={optivTab}
+            onSelectTab={(tab) => setOptivTab(tab)}
+            openFindingsCount={openFindingsCount}
+            blockedCount={blockedCount}
+            onOpenAssistant={() => handleOpenAssistant()}
+          />
+        ) : (
+          <TPRMSidebar
+            currentTab={tprmTab}
+            onSelectTab={(tab) => setTprmTab(tab)}
+            pendingApprovalsCount={0}
+            pendingTasksCount={0}
+            openRisksCount={0}
+          />
+        )}
 
-          {/* Tab Route Rendering */}
-          {currentTab === 'dashboard' && (
-            <DashboardView
-              onNavigate={(tab) => {
-                if (tab === 'vendors') setCurrentTab('directory');
-                else if (tab === 'onboarding') setCurrentTab('onboarding');
-                else if (tab === 'assessments') setCurrentTab('questionnaire');
-                else if (tab === 'tasks') setCurrentTab('tasks');
-                else if (tab === 'findings') setCurrentTab('findings');
-              }}
-            />
-          )}
-
-          {currentTab === 'directory' && (
-            <VendorDirectoryView
-              currentUser={currentUser}
-              onInitiateAssessment={(assessmentId) => {
-                setActiveAssessmentId(assessmentId);
-                setCurrentTab('questionnaire');
-              }}
-            />
-          )}
-
-          {currentTab === 'onboarding' && (
-            <OnboardingWizardView
-              currentUser={currentUser}
-              onComplete={() => {
-                refreshMetrics();
-                setCurrentTab('directory');
-              }}
-            />
-          )}
-
-          {(currentTab === 'questionnaire' || currentTab === 'assessments') && (
-            <QuestionnaireRunnerView
-              currentUser={currentUser}
-              initialAssessmentId={activeAssessmentId}
-              onNavigateToVendor={() => setCurrentTab('directory')}
-            />
-          )}
-
-          {currentTab === 'findings' && <RiskFindingsView />}
-
-          {(currentTab === 'tasks' || currentTab === 'approvals') && (
-            <TasksApprovalsView
-              currentUser={currentUser}
-              onNavigateToVendor={() => setCurrentTab('directory')}
-              onNavigateToQuestionnaire={(id) => {
-                setActiveAssessmentId(id);
-                setCurrentTab('questionnaire');
-              }}
-            />
-          )}
-
-          {currentTab === 'reassessments' && <ReassessmentsView />}
-
-          {currentTab === 'offboarding' && (
-            <VendorDirectoryView currentUser={currentUser} />
-          )}
-
-          {currentTab === 'workflows' && <WorkflowsView />}
-
-          {currentTab === 'organization' && (
-            <OrganizationAdminView
-              currentUser={currentUser}
-              onSelectUser={(u) => setCurrentUser(u)}
-            />
-          )}
-
-          {currentTab === 'reports' && (
-            <DashboardView
-              onNavigate={(tab) => {
-                if (tab === 'vendors') setCurrentTab('directory');
-                else setCurrentTab('findings');
-              }}
-            />
-          )}
-
-          {currentTab === 'audit' && <AuditLedgerView />}
-
-          {/* Legacy PII Guard Verification Panel */}
-          {currentTab === 'pii_guard' && (
-            <div className="space-y-6">
-              <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Zero-Leakage PII Guard Pipeline Verification
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Independent verification gate for unstructured onboarding attachments & documents.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setCurrentTab('dashboard')}
-                  className="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300"
-                >
-                  Return to TPRM Console
-                </button>
-              </div>
-
-              {/* Legacy Execution Bar */}
-              <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-600">SOURCE:</span>
-                    <button
-                      onClick={() => setInputMode('scenario')}
-                      className={`px-3 py-1 text-xs font-semibold rounded ${
-                        inputMode === 'scenario'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      Demo Fixture
-                    </button>
-                    <button
-                      onClick={() => setInputMode('upload')}
-                      className={`px-3 py-1 text-xs font-semibold rounded ${
-                        inputMode === 'upload'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      Custom File
-                    </button>
-                  </div>
-
-                  {inputMode === 'scenario' ? (
-                    <select
-                      value={selectedScenario}
-                      onChange={(e) => setSelectedScenario(e.target.value)}
-                      className="text-xs border border-slate-300 rounded px-3 py-1.5 bg-slate-50 min-w-[260px]"
-                    >
-                      {scenarios.map((s) => (
-                        <option key={s.filename} value={s.filename}>
-                          {s.filename} — {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="file"
-                      onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
-                      className="text-xs"
-                    />
-                  )}
-
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={simulateFailure}
-                      onChange={(e) => setSimulateFailure(e.target.checked)}
-                      className="rounded text-rose-600"
-                    />
-                    <span>Simulate Fail-Closed Block</span>
-                  </label>
-
-                  <button
-                    onClick={handleExecuteLegacyPipeline}
-                    disabled={legacyProcessing}
-                    className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded shadow-xs disabled:opacity-50"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    {legacyProcessing ? 'Processing Pipeline...' : 'Run PII Guard'}
-                  </button>
-                </div>
-
-                {legacyError && (
-                  <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-800 rounded">
-                    {legacyError}
-                  </div>
-                )}
-              </div>
-
-              {/* Legacy Tabs */}
-              {legacyResult && (
-                <div className="space-y-4">
-                  <div className="flex gap-2 border-b border-slate-200 pb-2">
-                    <button
-                      onClick={() => setLegacyTab('stages')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'stages'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Pipeline Stages
-                    </button>
-                    <button
-                      onClick={() => setLegacyTab('comparison')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'comparison'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Document Diff & Redactions
-                    </button>
-                    <button
-                      onClick={() => setLegacyTab('assistant')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'assistant'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Downstream Security Guard
-                    </button>
-                    <button
-                      onClick={() => setLegacyTab('audit')}
-                      className={`px-3 py-1 text-xs font-bold rounded ${
-                        legacyTab === 'audit'
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      Audit Trail
-                    </button>
-                  </div>
-
-                  {legacyTab === 'stages' && (
-                    <PipelineStages
-                      currentStage={legacyResult.current_stage}
-                      workflowStatus={legacyResult.workflow_status}
-                      stageHistory={legacyResult.stage_history}
-                      totalDuration={legacyResult.duration_sec}
-                    />
-                  )}
-                  {legacyTab === 'comparison' && (
-                    <DocumentComparison
-                      extractedText={legacyResult.extracted_text}
-                      redactedText={legacyResult.redacted_text}
-                      entities={legacyResult.entities}
-                      releaseAllowed={legacyResult.release_allowed}
-                      verificationStatus={legacyResult.verification_status}
-                    />
-                  )}
-                  {legacyTab === 'assistant' && (
-                    <AIAssistant documentId={legacyResult.document_id} />
-                  )}
-                  {legacyTab === 'audit' && (
-                    <AuditLedger
-                      documentId={legacyResult.document_id}
-                      releaseAllowed={legacyResult.release_allowed}
-                      sourceType={legacyResult.source_type}
-                    />
-                  )}
-                </div>
+        {/* Content Pane */}
+        <main className="optiv-main">
+          {activePlatform === 'pii_workspace' ? (
+            <>
+              {optivTab === 'overview' && (
+                <OverviewView
+                  currentUser={currentUser}
+                  activeDocument={activeDocument}
+                  onNavigateToWorkspace={handleNavigateWorkspaceWithDoc}
+                  onNavigateToTab={(tab) => setOptivTab(tab)}
+                />
               )}
-            </div>
+
+              {optivTab === 'workspace' && (
+                <DocumentWorkspaceView
+                  currentUser={currentUser}
+                  initialDocumentId={selectedWorkspaceDocId}
+                  initialEntityIndex={selectedEntityIndex}
+                  activeDocument={activeDocument}
+                  onDocumentChange={handleDocumentChange}
+                  onOpenAssistant={(docId) => handleOpenAssistant(docId)}
+                  scenarios={scenarios}
+                />
+              )}
+
+              {optivTab === 'runs' && (
+                <ProcessingRunsView
+                  currentUser={currentUser}
+                  onInspectRun={(docId) => handleNavigateWorkspaceWithDoc(docId)}
+                />
+              )}
+
+              {optivTab === 'findings' && (
+                <PIIFindingsView
+                  currentUser={currentUser}
+                  activeDocument={activeDocument}
+                  onNavigateToWorkspace={(docId, entityIdx) => handleNavigateWorkspaceWithDoc(docId, entityIdx)}
+                />
+              )}
+
+              {optivTab === 'redaction' && (
+                <RedactionReviewView
+                  currentUser={currentUser}
+                  activeDocument={activeDocument}
+                  onNavigateToWorkspace={() => setOptivTab('workspace')}
+                />
+              )}
+
+              {optivTab === 'verification' && (
+                <VerificationView
+                  currentUser={currentUser}
+                  activeDocument={activeDocument}
+                  onNavigateToWorkspace={() => setOptivTab('workspace')}
+                />
+              )}
+
+              {optivTab === 'audit' && <AuditLogsView currentUser={currentUser} />}
+
+              {optivTab === 'reports' && <ReportsDownloadsView currentUser={currentUser} />}
+
+              {optivTab === 'settings' && <SettingsView currentUser={currentUser} />}
+            </>
+          ) : (
+            /* TPRM Views */
+            <>
+              {tprmTab === 'dashboard' && <TPRMDashboardView onNavigate={(tab) => setTprmTab(tab as any)} />}
+              {tprmTab === 'directory' && <VendorDirectoryView currentUser={currentUser} onInitiateAssessment={(id) => { setActiveAssessmentId(id); setTprmTab('questionnaire'); }} onRefreshData={() => {}} />}
+              {tprmTab === 'onboarding' && <OnboardingWizardView currentUser={currentUser} onComplete={() => setTprmTab('directory')} />}
+              {tprmTab === 'questionnaire' && <QuestionnaireRunnerView currentUser={currentUser} initialAssessmentId={activeAssessmentId} onNavigateToVendor={() => setTprmTab('directory')} onRefreshMetrics={() => {}} />}
+              {tprmTab === 'findings' && <RiskFindingsView currentUser={currentUser} onRefreshMetrics={() => {}} />}
+              {tprmTab === 'tasks' && <TasksApprovalsView currentUser={currentUser} initialMode="my" onNavigateToVendor={() => setTprmTab('directory')} onNavigateToQuestionnaire={(id) => { setActiveAssessmentId(id); setTprmTab('questionnaire'); }} onRefreshMetrics={() => {}} />}
+              {tprmTab === 'reassessments' && <ReassessmentsView currentUser={currentUser} onRefreshMetrics={() => {}} />}
+              {tprmTab === 'workflows' && <WorkflowsView currentUser={currentUser} />}
+              {tprmTab === 'organization' && <OrganizationAdminView currentUser={currentUser} onSelectUser={(u) => setCurrentUser(u)} />}
+              {tprmTab === 'reports' && <TPRMDashboardView showExportPanel={true} onNavigate={(tab) => setTprmTab(tab as any)} />}
+              {tprmTab === 'audit' && <TPRMAuditLedgerView />}
+            </>
           )}
         </main>
       </div>
+
+      {/* Grounded AI Assistant Drawer */}
+      <AIAssistantDrawer
+        isOpen={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        documentId={assistantDocId}
+      />
     </div>
   );
 };
+
 export default App;

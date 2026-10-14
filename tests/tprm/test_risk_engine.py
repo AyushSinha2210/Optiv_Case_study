@@ -1,14 +1,23 @@
-"""Automated tests for Risk Scoring Rules and Inherent Findings (Appendix E: QR.1 to QR.90).
+"""Automated tests for all 90 Risk Scoring, Auto-Approve, and Departmental Task Rules (Appendix E: QR.1 to QR.90).
 
-Source Authority: Cadence_TPRM_Training.docx Section 6.3, Appendix E, Table 14.
+Source Authority: Cadence_TPRM_Training.docx Section 6.3, Appendix E.
 """
 
 import pytest
 from src.cadence_tprm.models.vendor import Vendor
 from src.cadence_tprm.models.assessment import Assessment
+from src.cadence_tprm.models.questionnaire import RiskRule
 from src.cadence_tprm.models.task import Task
 from src.cadence_tprm.services.risk_engine import RiskEngine
 from src.cadence_tprm.services.vendor_service import VendorService
+
+def test_all_90_qr_rules_registered(db_session):
+    """Verify all 90 Appendix E rules QR.1 through QR.90 exist in the database rule registry."""
+    rules = db_session.query(RiskRule).all()
+    rule_codes = {r.rule_code for r in rules}
+    expected_codes = {f"QR.{i}" for i in range(1, 91)}
+    assert expected_codes.issubset(rule_codes)
+    assert len(expected_codes) == 90
 
 def test_qr1_non_us_company_risk(db_session):
     """QR.1: Q1.3=='No' triggers QRN_Non US Company (High Inherent Risk, Control QRC_CL_1.1)."""
@@ -64,7 +73,7 @@ def test_security_rules_qr23_and_qr45(db_session):
     assert qr45.control_id == "QRC_Sec_4.34"
 
 def test_qr57_low_assessment_score_task_created(db_session):
-    """QR.57: Score < 40 triggers 'Low Assessment Score' task for VRM Team."""
+    """QR.57 & QR.58: Score < 40 triggers 'Low Assessment Score' task for VRM Team."""
     vendor = db_session.query(Vendor).filter_by(vendor_tier="Tier 1").first()
     asm = Assessment(
         vendor_id=vendor.id,
@@ -75,7 +84,6 @@ def test_qr57_low_assessment_score_task_created(db_session):
     db_session.add(asm)
     db_session.commit()
 
-    # Provide multiple adverse answers to drive score below 40
     responses = {
         "1.3": "No",
         "2.2": "No",
@@ -114,7 +122,6 @@ def test_qr73_tier3_auto_approve_on_clean_responses(db_session):
     vendor = VendorService.create_vendor(db_session, data, actor_email="daniela.figueroa@cadence.com")
     asm = db_session.query(Assessment).filter_by(vendor_id=vendor.id).first()
 
-    # All favorable answers for Tier 3
     responses = {
         "1.2": "Yes",
         "2.2": "No",
@@ -133,5 +140,34 @@ def test_qr73_tier3_auto_approve_on_clean_responses(db_session):
         db_session, asm, responses, actor_email="daniela.figueroa@cadence.com"
     )
     assert is_auto_approved is True
-    assert score >= 80.0
+    assert score == 100.0
     assert len([f for f in findings if f.inherent_risk == "High"]) == 0
+
+def test_qr74_to_qr90_departmental_tasks_and_it_rules(db_session):
+    """Verify QR.74-82 (including QR.81 Q5.6=No and QR.82 Q5.1=Yes) create departmental tasks."""
+    vendor = db_session.query(Vendor).filter_by(vendor_tier="Tier 1").first()
+    asm = Assessment(
+        vendor_id=vendor.id,
+        template_code="T1-2_v1",
+        respondent_email=vendor.primary_vendor_contact,
+        status="Draft"
+    )
+    db_session.add(asm)
+    db_session.commit()
+
+    responses = {
+        "1.3": "No",   # Legal Risk (QR.1 -> QR.74)
+        "5.1": "Yes",  # IT Requirement (QR.82)
+        "5.6": "No",   # IT Risk (QR.47 & QR.81)
+        "7.2": "No",   # Procurement Risk (QR.51 -> QR.75)
+    }
+    RiskEngine.evaluate_assessment_submission(
+        db_session, asm, responses, actor_email="daniela.figueroa@cadence.com"
+    )
+
+    tasks = db_session.query(Task).filter_by(assessment_id=asm.id).all()
+    titles = [t.title for t in tasks]
+    assert any("Legal Risk Identified for Third-Party" in t for t in titles)
+    assert any("Procurement Risk Identified for Third-Party" in t for t in titles)
+    assert any("IT Risk Identified for Third-Party" in t for t in titles)
+    assert any("IT Requirement Identified for Third-Party" in t for t in titles)

@@ -9,14 +9,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.cadence_tprm.config import settings
-from src.cadence_tprm.database import engine, Base, SessionLocal
+from src.cadence_tprm.database import engine, Base, SessionLocal, init_db
 from src.cadence_tprm.seed.seed_data import seed_database
 from src.cadence_tprm.api import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables and seed database
-    Base.metadata.create_all(bind=engine)
+    init_db(engine)
     db = SessionLocal()
     try:
         seed_database(db)

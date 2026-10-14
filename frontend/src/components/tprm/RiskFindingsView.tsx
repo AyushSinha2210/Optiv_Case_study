@@ -5,22 +5,27 @@ import {
   CheckCircle2,
   Clock,
   Edit3,
+  RotateCw,
+  X,
 } from 'lucide-react';
-import type { RiskFindingItem } from '../../types';
+import type { RiskFindingItem, UserProfile } from '../../types';
 
-interface ExtendedFinding extends RiskFindingItem {
-  vendor_name?: string;
-  vendor_id?: string;
+interface RiskFindingsViewProps {
+  currentUser?: UserProfile;
+  onRefreshMetrics?: () => void;
 }
 
-export const RiskFindingsView: React.FC = () => {
-  const [findings, setFindings] = useState<ExtendedFinding[]>([]);
+export const RiskFindingsView: React.FC<RiskFindingsViewProps> = ({
+  currentUser,
+  onRefreshMetrics,
+}) => {
+  const [findings, setFindings] = useState<RiskFindingItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [groupFilter, setGroupFilter] = useState<string>('All');
-  const [selectedFinding, setSelectedFinding] = useState<ExtendedFinding | null>(null);
+  const [selectedFinding, setSelectedFinding] = useState<RiskFindingItem | null>(null);
   const [mitigationText, setMitigationText] = useState<string>('');
   const [newStatus, setNewStatus] = useState<string>('Open');
   const [saving, setSaving] = useState<boolean>(false);
@@ -29,32 +34,12 @@ export const RiskFindingsView: React.FC = () => {
   const fetchFindings = async () => {
     setLoading(true);
     try {
-      // Query assessments to collect all findings with vendor metadata
-      const res = await fetch('/api/tprm/v1/assessments');
+      const res = await fetch('/api/tprm/v1/assessments/findings/all', {
+        headers: currentUser ? { 'X-User-Email': currentUser.email } : {},
+      });
       if (res.ok) {
         const data = await res.json();
-        const allFindings: ExtendedFinding[] = [];
-        // fetch details for each assessment to extract findings
-        for (const item of (data.items || []).slice(0, 15)) {
-          try {
-            const detailRes = await fetch(`/api/tprm/v1/assessments/${item.id}`);
-            if (detailRes.ok) {
-              const detail = await detailRes.json();
-              if (detail.findings && detail.findings.length > 0) {
-                detail.findings.forEach((f: RiskFindingItem) => {
-                  allFindings.push({
-                    ...f,
-                    vendor_name: item.vendor_name,
-                    vendor_id: item.vendor_id,
-                  });
-                });
-              }
-            }
-          } catch (e) {
-            // ignore item error
-          }
-        }
-        setFindings(allFindings);
+        setFindings(data.items || data.findings || []);
       }
     } catch (err) {
       console.error('Error fetching findings', err);
@@ -67,7 +52,7 @@ export const RiskFindingsView: React.FC = () => {
     fetchFindings();
   }, []);
 
-  const handleEditClick = (f: ExtendedFinding) => {
+  const handleEditClick = (f: RiskFindingItem) => {
     setSelectedFinding(f);
     setMitigationText(f.mitigation_recommendation || '');
     setNewStatus(f.status || 'Open');
@@ -78,23 +63,32 @@ export const RiskFindingsView: React.FC = () => {
     setSaving(true);
     setMessage(null);
     try {
-      // Update finding status/mitigation
-      // If we don't have a direct single finding PUT endpoint, we can inform the user or simulate update
-      setFindings((prev) =>
-        prev.map((item) =>
-          item.id === selectedFinding.id
-            ? {
-                ...item,
-                status: newStatus as any,
-                mitigation_recommendation: mitigationText,
-              }
-            : item
-        )
-      );
-      setMessage({ type: 'success', text: `Risk finding ${selectedFinding.rule_code} updated successfully` });
-      setSelectedFinding(null);
+      const res = await fetch(`/api/tprm/v1/assessments/findings/${selectedFinding.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(currentUser ? { 'X-User-Email': currentUser.email } : {}),
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          mitigation_recommendation: mitigationText,
+          plan_description: mitigationText,
+        }),
+      });
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: `Risk finding ${selectedFinding.rule_code} (${selectedFinding.control_id}) persisted to database with status '${newStatus}'.`,
+        });
+        setSelectedFinding(null);
+        await fetchFindings();
+        onRefreshMetrics?.();
+      } else {
+        const err = await res.json();
+        setMessage({ type: 'error', text: err.detail || 'Failed to update finding' });
+      }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to update finding' });
+      setMessage({ type: 'error', text: 'Network error updating finding' });
     } finally {
       setSaving(false);
     }
@@ -110,61 +104,59 @@ export const RiskFindingsView: React.FC = () => {
 
     const matchesSeverity = severityFilter === 'All' || f.inherent_risk === severityFilter;
     const matchesStatus = statusFilter === 'All' || f.status === statusFilter;
-    const matchesGroup = groupFilter === 'All' || f.responsible_group === groupFilter;
+    const matchesGroup = groupFilter === 'All' || f.responsible_group.includes(groupFilter);
 
     return matchesSearch && matchesSeverity && matchesStatus && matchesGroup;
   });
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
       <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <ShieldAlert className="w-6 h-6 text-rose-600" />
-            <h1 className="text-xl font-bold text-slate-900">Appendix E Risk Findings Ledger</h1>
+            <ShieldAlert size={20} className="text-rose-600" />
+            <h1 className="text-xl font-bold text-slate-900">Appendix E Risk Findings & Controls Ledger</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Authoritative risk evaluation triggered across 68 controls (QRC_001–QRC_068) and 90 rules (QR.1–QR.90).
+            Authoritative risk findings mapped to custom controls (<code>QRC_CL_*</code>, <code>QRC_CmL_*</code>, <code>QRC_Fin_*</code>, <code>QRC_Pri_*</code>, <code>QRC_Sec_*</code>, <code>QRC_IT_*</code>, <code>QRC_Mar_*</code>, <code>QRC_Pcr_*</code>, <code>QRC_RR_*</code>) and SLA.3/4/5 response windows.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200">
+        <div className="flex items-center gap-2">
+          <span className="badge badge-alert">
             High Severity: {findings.filter((f) => f.inherent_risk === 'High').length}
           </span>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">
+          <span className="badge badge-warning">
             Medium Severity: {findings.filter((f) => f.inherent_risk === 'Medium').length}
           </span>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-200">
-            Total Active: {findings.length}
-          </span>
+          <button type="button" className="btn btn-sm btn-secondary" onClick={fetchFindings}>
+            <RotateCw size={13} /> Refresh
+          </button>
         </div>
       </div>
 
       {message && (
         <div
-          className={`p-4 rounded-md border text-sm flex items-center gap-3 ${
+          className={`p-4 rounded-md border text-xs font-medium flex items-center gap-3 ${
             message.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
               : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}
         >
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
           <span>{message.text}</span>
         </div>
       )}
 
-      {/* Filter / Search Bar */}
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[240px]">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search size={15} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search by risk statement, rule code, control ID or vendor..."
+            placeholder="Search by risk statement, rule code (QR.*), control ID (QRC_*) or vendor..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 text-xs border border-slate-300 rounded-md bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-4 py-1.5 text-xs border border-slate-300 rounded-md bg-slate-50"
           />
         </div>
 
@@ -173,12 +165,12 @@ export const RiskFindingsView: React.FC = () => {
           <select
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
-            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50 focus:outline-none"
+            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50"
           >
             <option value="All">All Severities</option>
-            <option value="High">High Risk</option>
-            <option value="Medium">Medium Risk</option>
-            <option value="Low">Low Risk</option>
+            <option value="High">High Risk (SLA.3: 5+4=9d)</option>
+            <option value="Medium">Medium Risk (SLA.4: 10+4=14d)</option>
+            <option value="Low">Low Risk (SLA.5: 15+4=19d)</option>
           </select>
         </div>
 
@@ -187,11 +179,11 @@ export const RiskFindingsView: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50 focus:outline-none"
+            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50"
           >
             <option value="All">All Statuses</option>
             <option value="Open">Open</option>
-            <option value="Acknowledged">Acknowledged</option>
+            <option value="Acknowledged">Acknowledged (Risk Response)</option>
             <option value="Remediating">Remediating</option>
             <option value="Accepted">Risk Accepted</option>
             <option value="Closed">Closed</option>
@@ -203,187 +195,157 @@ export const RiskFindingsView: React.FC = () => {
           <select
             value={groupFilter}
             onChange={(e) => setGroupFilter(e.target.value)}
-            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50 focus:outline-none"
+            className="text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-slate-50"
           >
-            <option value="All">All Groups</option>
-            <option value="Security">Security</option>
-            <option value="Privacy">Privacy</option>
-            <option value="Legal">Legal</option>
-            <option value="IT">IT</option>
-            <option value="Compliance">Compliance</option>
-            <option value="Vendor Risk Management">VRM</option>
+            <option value="All">All TPRM Groups</option>
+            <option value="Security Group">Security Group</option>
+            <option value="Privacy Group">Privacy Group</option>
+            <option value="Legal Group">Legal Group</option>
+            <option value="Finance Group">Finance Group</option>
+            <option value="Compliance Group">Compliance Group</option>
+            <option value="Procurement Group">Procurement Group</option>
+            <option value="IT Group">IT Group</option>
           </select>
         </div>
       </div>
 
-      {/* Findings Table */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-x-auto">
         {loading ? (
           <div className="p-12 text-center text-slate-500">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-3"></div>
             <p className="text-sm">Evaluating risk findings across active assessments...</p>
           </div>
         ) : filteredFindings.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
-            <ShieldAlert className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-medium text-slate-700">No Risk Findings Found</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Either all submitted questionnaires have zero negative triggers, or current filters exclude all records.
-            </p>
+            <p className="text-sm font-medium text-slate-700">No Risk Findings Match Filter</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                  <th className="py-3 px-4">Rule & Severity</th>
-                  <th className="py-3 px-4">Risk Statement</th>
-                  <th className="py-3 px-4">Vendor & Control ID</th>
-                  <th className="py-3 px-4">Owner & Due Date</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-xs text-slate-700">
-                {filteredFindings.map((finding) => (
-                  <tr key={finding.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 text-[11px]">
-                          {finding.rule_code}
-                        </span>
-                        <span
-                          className={`font-semibold px-2 py-0.5 rounded-full text-[10px] ${
-                            finding.inherent_risk === 'High'
-                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                              : finding.inherent_risk === 'Medium'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          }`}
-                        >
-                          {finding.inherent_risk}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 max-w-sm">
-                      <div className="font-semibold text-slate-900 leading-snug">{finding.risk_name}</div>
-                      {finding.mitigation_recommendation && (
-                        <div className="text-[11px] text-slate-500 mt-1 truncate">
-                          <span className="font-medium text-slate-600">Mitigation:</span>{' '}
-                          {finding.mitigation_recommendation}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <div className="font-medium text-slate-900">{finding.vendor_name || 'Vendor'}</div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        {finding.control_id}: {finding.control_name}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <div className="font-medium text-slate-800">{finding.responsible_group}</div>
-                      <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {finding.due_date || 'Standard SLA'}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold ${
-                          finding.status === 'Open'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : finding.status === 'Remediating'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : finding.status === 'Accepted'
-                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}
-                      >
-                        {finding.status}
+          <table className="enterprise-table">
+            <thead>
+              <tr>
+                <th>Rule & Severity</th>
+                <th>Risk Name & Mitigation Guidance</th>
+                <th>Vendor & Control Reference</th>
+                <th>Responsible Group & SLA Deadline</th>
+                <th>Status</th>
+                <th className="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFindings.map((finding) => (
+                <tr key={finding.id}>
+                  <td className="whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-indigo-700">{finding.rule_code}</span>
+                      <span className={`badge ${finding.inherent_risk === 'High' ? 'badge-alert' : 'badge-warning'}`}>
+                        {finding.inherent_risk}
                       </span>
-                    </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => handleEditClick(finding)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-2.5 py-1 rounded hover:bg-indigo-50 transition-colors"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Manage
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="font-semibold text-slate-900">{finding.risk_name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{finding.mitigation_recommendation}</div>
+                  </td>
+                  <td>
+                    <div className="font-semibold text-slate-900">{finding.vendor_name}</div>
+                    <div className="font-mono text-xs text-indigo-600">
+                      {finding.control_id} — {finding.control_name}
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap">
+                    <div className="font-medium text-slate-800">{finding.responsible_group}</div>
+                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                      <Clock size={12} />
+                      <span>{finding.due_date ? new Date(finding.due_date).toLocaleDateString() : 'SLA'}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        finding.status === 'Open'
+                          ? 'badge-alert'
+                          : finding.status === 'Closed'
+                          ? 'badge-success'
+                          : 'badge-info'
+                      }`}
+                    >
+                      {finding.status}
+                    </span>
+                  </td>
+                  <td className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleEditClick(finding)}
+                      className="btn btn-sm btn-secondary"
+                    >
+                      <Edit3 size={13} /> Manage
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
-      {/* Mitigation / Manage Finding Modal */}
       {selectedFinding && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-4">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div className="modal-backdrop">
+          <div className="modal-dialog">
+            <div className="modal-header">
               <div>
-                <span className="text-xs font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                  {selectedFinding.rule_code}
-                </span>
-                <h3 className="text-base font-bold text-slate-900 mt-1">Manage Risk Finding</h3>
+                <span className="badge badge-alert">{selectedFinding.rule_code}</span>
+                <h3 className="text-base font-bold text-slate-900 mt-1">
+                  Update Risk Finding & Mitigation Plan
+                </h3>
               </div>
-              <button
-                onClick={() => setSelectedFinding(null)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="text-xs space-y-2 bg-slate-50 p-3 rounded border border-slate-200">
-              <div>
-                <strong>Risk:</strong> {selectedFinding.risk_name}
-              </div>
-              <div>
-                <strong>Control ID:</strong> {selectedFinding.control_id} ({selectedFinding.control_name})
-              </div>
-              <div>
-                <strong>Vendor:</strong> {selectedFinding.vendor_name}
-              </div>
-              <div>
-                <strong>Severity:</strong> {selectedFinding.inherent_risk} Inherent Risk
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">Finding Status:</label>
-              <select
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
-                className="w-full text-xs border border-slate-300 rounded px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none"
-              >
-                <option value="Open">Open (Action Required)</option>
-                <option value="Acknowledged">Acknowledged</option>
-                <option value="Remediating">Remediating (Mitigation in Progress)</option>
-                <option value="Accepted">Risk Accepted (Exception Logged)</option>
-                <option value="Closed">Closed (Remediated)</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-700">Mitigation Recommendation & Notes:</label>
-              <textarea
-                rows={4}
-                value={mitigationText}
-                onChange={(e) => setMitigationText(e.target.value)}
-                placeholder="Enter agreed mitigation steps, compensating controls, or verification proof..."
-                className="w-full text-xs border border-slate-300 rounded p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setSelectedFinding(null)}
-                className="px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-md border border-slate-300"
+                className="btn btn-sm btn-secondary"
+                aria-label="Close dialog"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="modal-body space-y-3">
+              <div className="text-xs space-y-1 bg-slate-50 p-3 rounded border border-slate-200">
+                <div><strong>Risk Name:</strong> {selectedFinding.risk_name}</div>
+                <div><strong>Control ID:</strong> {selectedFinding.control_id} ({selectedFinding.control_name})</div>
+                <div><strong>Vendor:</strong> {selectedFinding.vendor_name}</div>
+                <div><strong>Inherent Risk:</strong> {selectedFinding.inherent_risk}</div>
+              </div>
+
+              <div>
+                <label className="input-label">Finding Lifecycle Status:</label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="Open">Open (Action Required)</option>
+                  <option value="Acknowledged">Acknowledged (SLA.3/4/5 Risk Response Recorded)</option>
+                  <option value="Remediating">Remediating (Remediation Plan in Progress)</option>
+                  <option value="Accepted">Risk Accepted (Documented Exception)</option>
+                  <option value="Closed">Closed (Verified & Remediated)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="input-label">Mitigation Plan & Control Evidence Notes:</label>
+                <textarea
+                  rows={4}
+                  value={mitigationText}
+                  onChange={(e) => setMitigationText(e.target.value)}
+                  className="input-textarea"
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setSelectedFinding(null)}
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
@@ -391,9 +353,9 @@ export const RiskFindingsView: React.FC = () => {
                 type="button"
                 onClick={handleSaveMitigation}
                 disabled={saving}
-                className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-xs disabled:opacity-50"
+                className="btn btn-primary"
               >
-                {saving ? 'Saving...' : 'Update Finding'}
+                {saving ? 'Persisting...' : 'Persist Finding Update'}
               </button>
             </div>
           </div>

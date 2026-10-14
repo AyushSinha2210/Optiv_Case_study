@@ -1,17 +1,17 @@
-"""Vendor management service with Table 9 attribute validation and CRUD operations.
+"""Vendor management service with Section 5.2 attribute validation, Attribute Manager, and Renewal Decisions.
 
-Source Authority: Cadence_TPRM_Training.docx Section 2.1, 4.1, 5.2, Table 4, Table 9.
+Source Authority: Cadence_TPRM_Training.docx Section 2.1, 4.1, 5.2, 6.2, 18.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from src.cadence_tprm.models.vendor import Vendor, Contract
-from src.cadence_tprm.models.assessment import Assessment
+from src.cadence_tprm.models.vendor import Vendor, VendorAttributeDefinition, Contract, RenewalDecision
+from src.cadence_tprm.models.assessment import Assessment, RiskFinding
+from src.cadence_tprm.models.workflow import WorkflowInstance, WorkflowTransition
 from src.cadence_tprm.models.task import Task
-from src.cadence_tprm.models.assessment import RiskFinding
 from src.cadence_tprm.services.workflow_engine import WorkflowEngine
 from src.cadence_tprm.services.audit_service import AuditService
 
@@ -40,7 +40,7 @@ class VendorService:
 
     @staticmethod
     def validate_attributes(data: dict):
-        """Strict validation against Table 9 attributes."""
+        """Strict validation against Section 5.2 attributes."""
         name = data.get("name")
         if not name or not str(name).strip():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Vendor name is required.")
@@ -66,7 +66,7 @@ class VendorService:
                 detail=f"Invalid type '{v_type}'. Allowed: {sorted(list(ALLOWED_TYPES))}"
             )
 
-        crit = data.get("criticality", "Medium")
+        crit = data.get("criticality") or "Medium"
         if crit not in ALLOWED_CRITICALITIES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -85,7 +85,6 @@ class VendorService:
     def create_vendor(db: Session, data: dict, actor_email: str) -> Vendor:
         VendorService.validate_attributes(data)
 
-        # Check for duplicate vendor name
         existing = db.query(Vendor).filter_by(name=data["name"].strip()).first()
         if existing:
             raise HTTPException(
@@ -96,20 +95,21 @@ class VendorService:
         vendor = Vendor(
             name=data["name"].strip(),
             type=data.get("type", "Technology"),
-            criticality=data.get("criticality", "Medium"),
+            criticality=data.get("criticality") or "Medium",
             primary_vendor_contact=data["primary_vendor_contact"].strip().lower(),
             business_owner=data["business_owner"].strip().lower(),
             vendor_tier=data["vendor_tier"],
             vendor_category=data["vendor_category"],
             website=data.get("website", ""),
+            custom_attributes=data.get("custom_attributes") or {},
             lifecycle_status="New",
             current_workflow_name="CD_Onboarding Workflow",
-            current_stage="New Third Party"
+            current_stage="New Third Party",
+            is_archived=False,
         )
         db.add(vendor)
         db.flush()
 
-        # Audit vendor creation
         AuditService.log_event(
             db,
             actor_email=actor_email,
@@ -119,9 +119,43 @@ class VendorService:
             details={"name": vendor.name, "category": vendor.vendor_category, "tier": vendor.vendor_tier}
         )
 
-        # Auto-trigger onboarding state machine
+        # Auto-trigger CD_Onboarding Workflow routing (WR.ON.1-6)
         WorkflowEngine.route_new_vendor(db, vendor, actor_email)
 
+        return vendor
+
+    @staticmethod
+    def update_vendor(db: Session, vendor_id: str, data: dict, actor_email: str) -> Vendor:
+        vendor = db.query(Vendor).filter_by(id=vendor_id).first()
+        if not vendor:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found.")
+
+        changes = {}
+        for field in ["type", "criticality", "primary_vendor_contact", "business_owner", "website"]:
+            if field in data and data[field] is not None and getattr(vendor, field) != data[field]:
+                changes[field] = {"old": getattr(vendor, field), "new": data[field]}
+                setattr(vendor, field, data[field])
+
+        if "vendor_category" in data and data["vendor_category"] in ALLOWED_CATEGORIES:
+            if vendor.vendor_category != data["vendor_category"]:
+                changes["vendor_category"] = {"old": vendor.vendor_category, "new": data["vendor_category"]}
+                vendor.vendor_category = data["vendor_category"]
+
+        if "vendor_tier" in data and data["vendor_tier"] in ALLOWED_TIERS:
+            if vendor.vendor_tier != data["vendor_tier"]:
+                changes["vendor_tier"] = {"old": vendor.vendor_tier, "new": data["vendor_tier"]}
+                vendor.vendor_tier = data["vendor_tier"]
+
+        vendor.updated_at = datetime.now(timezone.utc)
+        AuditService.log_event(
+            db,
+            actor_email=actor_email,
+            action="VENDOR_UPDATED",
+            entity_type="VENDOR",
+            entity_id=vendor.id,
+            details={"changes": changes}
+        )
+        db.commit()
         return vendor
 
     @staticmethod
@@ -169,6 +203,8 @@ class VendorService:
                     "lifecycle_status": v.lifecycle_status,
                     "current_workflow_name": v.current_workflow_name,
                     "current_stage": v.current_stage,
+                    "is_archived": getattr(v, "is_archived", False),
+                    "renewal_status": getattr(v, "renewal_status", "Active"),
                     "last_assessment_completion_date": v.last_assessment_completion_date.isoformat() if v.last_assessment_completion_date else None,
                     "next_reassessment_due_date": v.next_reassessment_due_date.isoformat() if v.next_reassessment_due_date else None,
                     "created_at": v.created_at.isoformat(),
@@ -190,6 +226,21 @@ class VendorService:
         findings = db.query(RiskFinding).filter_by(vendor_id=vendor.id).all()
         contracts = db.query(Contract).filter_by(vendor_id=vendor.id).all()
         tasks = db.query(Task).filter_by(vendor_id=vendor.id).all()
+        renewals = db.query(RenewalDecision).filter_by(vendor_id=vendor.id).all()
+        wf_instances = db.query(WorkflowInstance).filter_by(vendor_id=vendor.id).all()
+        transitions = []
+        for inst in wf_instances:
+            for tr in db.query(WorkflowTransition).filter_by(instance_id=inst.id).order_by(WorkflowTransition.timestamp.desc()).all():
+                transitions.append({
+                    "id": tr.id,
+                    "actor_email": tr.actor_email,
+                    "from_stage": tr.from_stage,
+                    "to_stage": tr.to_stage,
+                    "trigger_name": tr.trigger_name,
+                    "rule_name": tr.rule_name,
+                    "decision_reason": tr.decision_reason,
+                    "timestamp": tr.timestamp.isoformat(),
+                })
 
         return {
             "vendor": {
@@ -205,6 +256,8 @@ class VendorService:
                 "lifecycle_status": vendor.lifecycle_status,
                 "current_workflow_name": vendor.current_workflow_name,
                 "current_stage": vendor.current_stage,
+                "is_archived": getattr(vendor, "is_archived", False),
+                "renewal_status": getattr(vendor, "renewal_status", "Active"),
                 "last_assessment_completion_date": vendor.last_assessment_completion_date.isoformat() if vendor.last_assessment_completion_date else None,
                 "next_reassessment_due_date": vendor.next_reassessment_due_date.isoformat() if vendor.next_reassessment_due_date else None,
                 "created_at": vendor.created_at.isoformat(),
@@ -249,6 +302,19 @@ class VendorService:
                 }
                 for c in contracts
             ],
+            "renewals": [
+                {
+                    "id": r.id,
+                    "decision": r.decision,
+                    "decided_by": r.decided_by,
+                    "rationale": r.rationale,
+                    "open_findings_at_decision": r.open_findings_at_decision,
+                    "next_renewal_date": r.next_renewal_date.isoformat() if r.next_renewal_date else None,
+                    "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+                }
+                for r in renewals
+            ],
+            "transitions": transitions,
             "tasks": [
                 {
                     "id": t.id,
